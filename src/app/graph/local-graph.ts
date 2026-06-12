@@ -65,7 +65,7 @@ import { GraphOverlay } from './graph-overlay';
                 [data]="g"
                 [activeSlug]="slug()"
                 [alwaysLabels]="true"
-                [maxZoom]="2.5"
+                [maxZoom]="1.6"
               />
             </div>
           }
@@ -78,7 +78,7 @@ import { GraphOverlay } from './graph-overlay';
         [data]="g"
         [activeSlug]="slug()"
         [alwaysLabels]="true"
-        [maxZoom]="2.5"
+        [maxZoom]="1.8"
         title="Local graph"
         (close)="overlay.set(null)"
       />

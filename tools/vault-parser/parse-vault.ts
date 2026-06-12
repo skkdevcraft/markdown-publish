@@ -569,5 +569,19 @@ function buildNav(entries: NavEntry[]): NavNode[] {
     }
     level.push({ type: entry.type, name: entry.title, slug: entry.slug });
   }
+  // Folders first, then notes/canvases, each alphabetically (Obsidian order).
+  const sortLevel = (nodes: NavNode[]): void => {
+    nodes.sort(
+      (a, b) =>
+        (a.type === 'folder' ? 0 : 1) - (b.type === 'folder' ? 0 : 1) ||
+        a.name.localeCompare(b.name),
+    );
+    for (const node of nodes) {
+      if (node.children) {
+        sortLevel(node.children);
+      }
+    }
+  };
+  sortLevel(root);
   return root;
 }

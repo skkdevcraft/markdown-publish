@@ -387,6 +387,13 @@ export class GraphCanvas {
     });
     this.edgeCount = this.links.length;
 
+    // Degree relative to the *displayed* graph: a sub-graph (local view) must
+    // not inherit full-vault hub degrees, or every node around a hub renders
+    // as a max-size dot.
+    for (const n of this.nodes) {
+      n.degree = this.adjacency.get(n.slug)?.length ?? 0;
+    }
+
     const large = this.nodes.length > 400;
     this.large = large;
     const baseCharge = large ? -180 : -320;
