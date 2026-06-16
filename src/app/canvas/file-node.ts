@@ -1,5 +1,6 @@
 import {
   afterNextRender,
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -8,6 +9,7 @@ import {
   ElementRef,
   inject,
   PLATFORM_ID,
+  Renderer2,
   signal,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
@@ -21,6 +23,11 @@ import { CanvasZoom } from './canvas-zoom';
 /** At/above this board zoom a visible card renders its full (crisp) note body
  *  with working clips; below it the card shows the whole-note thumbnail image. */
 const FULL_ZOOM = 0.5;
+
+/** At/above this board zoom a full card's clip GIFs animate; between FULL_ZOOM
+ *  and here the full note shows static posters, so a board you've only just
+ *  zoomed into animates nothing until you're close enough to watch. */
+const NEAR_ZOOM = 0.6;
 
 @Component({
   selector: 'app-file-node',
@@ -129,6 +136,7 @@ export class FileNode extends CanvasNodeBase {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly el = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly renderer = inject(Renderer2);
 
   protected readonly node = computed(() => this.modelSignal() as unknown as CanvasNode);
   protected readonly payload = computed(() => this.node().payload as FileNotePayload);
@@ -175,6 +183,22 @@ export class FileNode extends CanvasNodeBase {
         this.detail.set(t);
       }
     });
+    // Clip level-of-detail: a full card's GIFs animate only when zoomed in past
+    // NEAR_ZOOM, otherwise they sit on their static poster. afterRenderEffect
+    // re-runs after the body's innerHTML is in the DOM and whenever detail()/zoom
+    // change; reading zoom.scale() only inside the 'full' branch means a zoomed-
+    // out board never tracks the zoom at all. No-op on the server.
+    afterRenderEffect(() => {
+      if (this.detail() !== 'full') return;
+      const near = this.zoom.scale() >= NEAR_ZOOM;
+      const imgs = this.el.nativeElement.querySelectorAll<HTMLImageElement>('img.clip-gif');
+      imgs.forEach((img) => {
+        const want = near ? img.getAttribute('data-src') : img.getAttribute('data-poster');
+        if (want && img.getAttribute('src') !== want) {
+          this.renderer.setAttribute(img, 'src', want);
+        }
+      });
+    });
     if (this.isBrowser) {
       const destroyRef = inject(DestroyRef);
       afterNextRender(() => {
@@ -193,8 +217,9 @@ export class FileNode extends CanvasNodeBase {
 
   protected readonly safeHtml = computed(() => {
     let html = this.payload().html ?? '';
-    // Default clip GIFs to their static poster on the board; CanvasView swaps the
-    // animated GIF back in for cards that are zoomed-in and on screen.
+    // Default clip GIFs to their static poster on the board; the afterRenderEffect
+    // above swaps the animated GIF back in once a full card is zoomed in past
+    // NEAR_ZOOM (and SSR/first paint stay on the cheap poster).
     html = html.replace(/<img\b[^>]*\bclass="[^"]*\bclip-gif\b[^"]*"[^>]*>/g, (tag) => {
       const poster = tag.match(/\bdata-poster="([^"]*)"/);
       return poster ? tag.replace(/\bsrc="[^"]*"/, `src="${poster[1]}"`) : tag;

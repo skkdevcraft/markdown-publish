@@ -7,7 +7,6 @@ import {
   ElementRef,
   inject,
   input,
-  NgZone,
   PLATFORM_ID,
   resource,
   viewChild,
@@ -38,9 +37,6 @@ const onlyPrimaryNodeDrag = (event: Event): void => {
 };
 const MIN_ZOOM = 0.06;
 const MAX_ZOOM = 3;
-/** Below this zoom the board keeps clip GIFs as static posters; at/above it,
- *  on-screen cards animate the real GIF (level-of-detail, keeps the GPU calm). */
-const NEAR_ZOOM = 0.6;
 
 @Component({
   selector: 'app-canvas-view',
@@ -48,7 +44,10 @@ const NEAR_ZOOM = 0.6;
   imports: [NgDrawFlowComponent, ReactiveFormsModule],
   template: `
     @if (isBrowser && model()) {
-      <ng-draw-flow class="canvas" [formControl]="ctrl" />
+      <!-- ng-draw-flow's (scale) emits the live zoom as an integer percent
+           (50 = 0.5x); /100 back to a factor and feed the shared signal so cards
+           pick their level of detail reactively (no polling / getComputedStyle). -->
+      <ng-draw-flow class="canvas" [formControl]="ctrl" (scale)="zoom.scale.set($event / 100)" />
     } @else if (canvas.error()) {
       <p class="canvas-error">Could not load this canvas.</p>
     }
@@ -96,8 +95,8 @@ export class CanvasView {
   readonly slug = input.required<string>();
 
   private readonly content = inject(ContentService);
-  private readonly zoom = inject(CanvasZoom);
-  private readonly ngZone = inject(NgZone);
+  /** Shared board zoom; the template binds ng-draw-flow's (scale) output to it. */
+  protected readonly zoom = inject(CanvasZoom);
   protected readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   private readonly flow = viewChild(NgDrawFlowComponent);
@@ -119,11 +118,6 @@ export class CanvasView {
   });
 
   private resizeObserver?: ResizeObserver;
-
-  // ---- clip GIF level-of-detail (see NEAR_ZOOM) ----
-  private clipObserver?: IntersectionObserver;
-  private readonly visibleClips = new Set<HTMLImageElement>();
-  private clipsRaf = 0;
 
   /** Active node-resize gesture (started by a grip's mp-resize-start event). */
   private resizeGesture: {
@@ -212,10 +206,7 @@ export class CanvasView {
         const el = this.flowEl()?.nativeElement as HTMLElement | undefined;
         this.resizeObserver?.disconnect();
         if (el) {
-          this.resizeObserver = new ResizeObserver(() => {
-            this.fit();
-            this.startZoomSync(el);
-          });
+          this.resizeObserver = new ResizeObserver(() => this.fit());
           this.resizeObserver.observe(el);
           // Links (<a>) and images are natively draggable: the browser starts
           // its own HTML drag-and-drop, fires pointercancel and starves the
@@ -249,7 +240,6 @@ export class CanvasView {
           return;
         }
         this.onResizeMove(event);
-        if (pointerDown) this.scheduleClips(); // panning brings new cards on-screen
       };
       // Node resize: each node's grip emits mp-resize-start (see CanvasNodeBase).
       // The gesture is owned HERE because this component owns the form model:
@@ -281,106 +271,14 @@ export class CanvasView {
       document.addEventListener('pointerup', onDocUp, true);
       document.addEventListener('pointermove', onDocMove, true);
 
-      // Track which clip GIFs are on screen; re-evaluate LOD on every zoom/pan.
-      this.clipObserver = new IntersectionObserver(
-        (entries) => {
-          for (const e of entries) {
-            if (e.isIntersecting) this.visibleClips.add(e.target as HTMLImageElement);
-            else this.visibleClips.delete(e.target as HTMLImageElement);
-          }
-          this.scheduleClips();
-        },
-        { rootMargin: '150px' },
-      );
-      const onWheel = () => this.scheduleClips();
-      document.addEventListener('wheel', onWheel, { passive: true, capture: true });
-
       inject(DestroyRef).onDestroy(() => {
         this.resizeObserver?.disconnect();
-        this.clipObserver?.disconnect();
-        if (this.zoomPoll) clearInterval(this.zoomPoll);
-        if (this.clipsRaf) cancelAnimationFrame(this.clipsRaf);
         document.removeEventListener('mp-resize-start', onResizeStart);
         document.removeEventListener('pointerdown', onDocDown, true);
         document.removeEventListener('pointerup', onDocUp, true);
         document.removeEventListener('pointermove', onDocMove, true);
-        document.removeEventListener('wheel', onWheel, { capture: true } as EventListenerOptions);
       });
     }
-  }
-
-  /** Current board scale (screen px per local px) read off any rendered node —
-   *  the same ratio the resize grips use, so no ng-draw-flow internals needed. */
-  /** ng-draw-flow keeps the board zoom in the CSS matrix on its `.pan-zoom`
-   *  element (matrix(scale,...)). Parse it; null if not available yet. */
-  private scaleFromMatrix(el: HTMLElement): number | null {
-    const pz = el.querySelector('.pan-zoom') as HTMLElement | null;
-    const t = pz ? getComputedStyle(pz).transform : '';
-    if (t && t.startsWith('matrix')) {
-      const a = parseFloat(t.slice(7).split(',')[0]);
-      if (a > 0) return a;
-    }
-    return null;
-  }
-
-  private zoomPoll = 0;
-
-  /** Mirror the board's live zoom into the shared signal. ng-draw-flow settles
-   *  its init transform asynchronously and a one-shot read (or even a style
-   *  MutationObserver) can latch a transient identity (=1). A light interval
-   *  poll of the `.pan-zoom` matrix converges on the real scale and also tracks
-   *  user pan/zoom. Runs outside Angular so idle ticks cost no change detection;
-   *  only an actual scale change writes the signal (which then refreshes cards). */
-  private startZoomSync(el: HTMLElement): void {
-    if (this.zoomPoll) return;
-    const tick = () => {
-      const s = this.scaleFromMatrix(el);
-      if (s == null) return;
-      const cur = this.zoom.scale();
-      // Ignore sub-pixel jitter (relative threshold) so idle cards never
-      // re-render — that flicker is what made zoomed-in text twitch.
-      if (Math.abs(s - cur) <= cur * 0.015 + 0.0008) return;
-      this.zoom.scale.set(s);
-      // GIF activation only when the near-state actually flips (hysteresis),
-      // not on every scale tick.
-      const near = this.nearOn ? s >= NEAR_ZOOM - 0.12 : s >= NEAR_ZOOM;
-      if (near !== this.nearOn) {
-        this.nearOn = near;
-        this.scheduleClips();
-      }
-    };
-    this.ngZone.runOutsideAngular(() => {
-      this.zoomPoll = setInterval(tick, 200) as unknown as number;
-    });
-    tick();
-  }
-
-  private scheduleClips(): void {
-    if (this.clipsRaf) return;
-    this.clipsRaf = requestAnimationFrame(() => {
-      this.clipsRaf = 0;
-      this.updateClips();
-    });
-  }
-
-  /** Swap each clip <img> between its animated GIF (data-src) and its static
-   *  poster (data-poster): animate only when zoomed in AND on screen. */
-  private nearOn = false;
-
-  private updateClips(): void {
-    const el = this.flowEl()?.nativeElement as HTMLElement | undefined;
-    if (!el) return;
-    el.querySelectorAll<HTMLImageElement>('img.clip-gif').forEach((img) => {
-      if (img.dataset['lod'] !== '1') {
-        img.dataset['lod'] = '1';
-        this.clipObserver?.observe(img);
-      }
-      const gif = img.getAttribute('data-src');
-      const poster = img.getAttribute('data-poster');
-      if (!gif || !poster) return;
-      const want = this.nearOn && this.visibleClips.has(img) ? gif : poster;
-      if (img.getAttribute('src') !== want) img.setAttribute('src', want);
-    });
   }
 
   private fit(): void {
@@ -403,11 +301,9 @@ export class CanvasView {
     );
     const cx = (bounds.minX + bounds.maxX) / 2;
     const cy = (bounds.minY + bounds.maxY) / 2;
-    // Authoritative zoom (fit computed it) -> drives FileNode level-of-detail
-    // immediately, without waiting for a (possibly delayed) transform read.
+    // setPosition emits ng-draw-flow's (scale) output, which updates the shared
+    // zoom signal; set it here too so the very first paint already has it.
     this.zoom.scale.set(zoom);
     flow.setPosition({ x: -cx * zoom, y: -cy * zoom, zoom });
-    // Re-apply clip LOD once the new transform has painted.
-    setTimeout(() => this.scheduleClips(), 160);
   }
 }

@@ -1,6 +1,6 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, withViewTransitions } from '@angular/router';
-import { DfArrowhead, provideNgDrawFlowConfigs } from '@ng-draw-flow/core';
+import { DfArrowhead, dfPanZoomOptionsProvider, provideNgDrawFlowConfigs } from '@ng-draw-flow/core';
 
 import { routes } from './app.routes';
 import { provideClientHydration } from '@angular/platform-browser';
@@ -33,5 +33,8 @@ export const appConfig: ApplicationConfig = {
         connectionsCreatable: false,
       },
     }),
+    // Let the board zoom out far enough to fit a large canvas whole — the
+    // library default minZoom (0.25) clamps the fit-all zoom for big boards.
+    dfPanZoomOptionsProvider({ minZoom: 0.04, maxZoom: 3 }),
   ],
 };
