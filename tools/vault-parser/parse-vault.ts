@@ -351,7 +351,8 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
           [],
           [],
         );
-        return { slug: n.slug, title: n.title, html, available: true };
+        const thumb = resolveAsset(`${n.base}.thumb.jpg`);
+        return { slug: n.slug, title: n.title, html, available: true, thumbUrl: thumb?.url };
       },
     });
     parsedCanvases.push({ slug: pathToSlug(rel), title: baseName(rel), model });

@@ -1,9 +1,14 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
+  effect,
+  ElementRef,
   inject,
   PLATFORM_ID,
+  signal,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
@@ -11,6 +16,11 @@ import { DomSanitizer } from '@angular/platform-browser';
 import DOMPurify from 'dompurify';
 import type { CanvasNode, FileNotePayload } from '@shared/content-model';
 import { CONNECTOR_IMPORTS, CONNECTORS_STYLES, CONNECTORS_TEMPLATE, CanvasNodeBase } from './connectors';
+import { CanvasZoom } from './canvas-zoom';
+
+/** At/above this board zoom a visible card renders its full (crisp) note body
+ *  with working clips; below it the card shows the whole-note thumbnail image. */
+const FULL_ZOOM = 0.5;
 
 @Component({
   selector: 'app-file-node',
@@ -25,7 +35,22 @@ import { CONNECTOR_IMPORTS, CONNECTORS_STYLES, CONNECTORS_TEMPLATE, CanvasNodeBa
     `
     @if (payload().available) {
       <button type="button" class="card" (click)="open($event)">
-        <div class="body" [innerHTML]="safeHtml()"></div>
+        @switch (detail()) {
+          @case ('full') {
+            <div class="body" [innerHTML]="safeHtml()"></div>
+          }
+          @case ('preview') {
+            @if (payload().thumbUrl) {
+              <img class="card-thumb" [src]="payload().thumbUrl" [alt]="payload().title" loading="lazy" decoding="async" />
+            } @else {
+              <h3 class="title">{{ payload().title }}</h3>
+              <p class="preview">{{ excerpt() }}</p>
+            }
+          }
+          @default {
+            <h3 class="title">{{ payload().title }}</h3>
+          }
+        }
       </button>
     } @else {
       <div class="card unavailable">
@@ -74,6 +99,25 @@ import { CONNECTOR_IMPORTS, CONNECTORS_STYLES, CONNECTORS_TEMPLATE, CanvasNodeBa
         font-size: 1rem;
       }
 
+      .preview {
+        margin: 0;
+        font-size: 0.85rem;
+        line-height: 1.4;
+        color: var(--text-muted, inherit);
+        overflow: hidden;
+      }
+
+      .card-thumb {
+        flex: 1 1 auto;
+        min-height: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: top center;
+        display: block;
+        border-radius: 0.25rem;
+      }
+
       .unavailable {
         opacity: 0.6;
       }
@@ -84,12 +128,77 @@ export class FileNode extends CanvasNodeBase {
   private readonly router = inject(Router);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  private readonly el = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly node = computed(() => this.modelSignal() as unknown as CanvasNode);
   protected readonly payload = computed(() => this.node().payload as FileNotePayload);
+  private readonly zoom = inject(CanvasZoom);
+
+  /** Level of detail: off-screen -> title only; on-screen & zoomed out ->
+   *  light preview; zoomed in -> full note body. */
+  /** Level of detail with hysteresis so it doesn't flicker at the threshold:
+   *  once 'full', it stays full until the zoom drops well below FULL_ZOOM. */
+  private prevTier: 'title' | 'preview' | 'full' = 'title';
+  protected readonly detail = signal<'title' | 'preview' | 'full'>('title');
+
+  protected readonly excerpt = computed(() => {
+    const txt = (this.payload().html ?? '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return txt.length > 220 ? txt.slice(0, 220) + '…' : txt;
+  });
+
+  /** Canvas virtualization: render only the title until the card scrolls into
+   *  view, then mount the full note HTML. Keeps a board of many notes light —
+   *  off-screen cards hold no images/GIFs in the DOM at all. SSR renders the
+   *  light title (visible=false), and hydration starts in the same state. */
+  protected readonly visible = signal(false);
+
+  constructor() {
+    super();
+    // Pick the level of detail from visibility + zoom, with hysteresis on the
+    // full<->preview boundary so a tiny zoom wobble can't flip the card (which
+    // showed up as twitching text when zoomed in near the threshold).
+    effect(() => {
+      // Zoomed out (or off screen) -> light whole-note thumbnail / title.
+      // Zoomed in -> crisp full render (with working clips). Hysteresis on the
+      // boundary so a tiny zoom wobble can't flip the card (twitching text).
+      const v = this.visible();
+      const s = this.zoom.scale();
+      let t: 'title' | 'preview' | 'full';
+      if (!v) t = 'title';
+      else if (this.prevTier === 'full') t = s >= FULL_ZOOM - 0.1 ? 'full' : 'preview';
+      else t = s >= FULL_ZOOM ? 'full' : 'preview';
+      if (t !== this.prevTier) {
+        this.prevTier = t;
+        this.detail.set(t);
+      }
+    });
+    if (this.isBrowser) {
+      const destroyRef = inject(DestroyRef);
+      afterNextRender(() => {
+        const io = new IntersectionObserver(
+          (entries) => {
+            const on = entries.some((e) => e.isIntersecting);
+            if (on !== this.visible()) this.visible.set(on);
+          },
+          { rootMargin: '700px' },
+        );
+        io.observe(this.el.nativeElement);
+        destroyRef.onDestroy(() => io.disconnect());
+      });
+    }
+  }
 
   protected readonly safeHtml = computed(() => {
-    const html = this.payload().html ?? '';
+    let html = this.payload().html ?? '';
+    // Default clip GIFs to their static poster on the board; CanvasView swaps the
+    // animated GIF back in for cards that are zoomed-in and on screen.
+    html = html.replace(/<img\b[^>]*\bclass="[^"]*\bclip-gif\b[^"]*"[^>]*>/g, (tag) => {
+      const poster = tag.match(/\bdata-poster="([^"]*)"/);
+      return poster ? tag.replace(/\bsrc="[^"]*"/, `src="${poster[1]}"`) : tag;
+    });
     return this.sanitizer.bypassSecurityTrustHtml(
       this.isBrowser ? DOMPurify.sanitize(html) : html,
     );

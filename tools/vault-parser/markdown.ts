@@ -307,7 +307,23 @@ export function createMarkdown(): MarkdownIt {
       const src = token.attrs![srcIdx][1];
       if (!/^([a-z]+:)?\/\//i.test(src) && !src.startsWith('data:')) {
         const resolved = env.resolveAsset(src);
-        if (resolved) token.attrs![srcIdx][1] = resolved.url;
+        if (resolved) {
+          token.attrs![srcIdx][1] = resolved.url;
+          // Animated GIF with a sibling poster (<name>.jpg): tag it so the
+          // canvas can show the static poster when zoomed out / off-screen and
+          // animate the real GIF only up close (avoids dozens of GIFs decoding
+          // at once). No poster sibling -> unchanged, so other vaults are safe.
+          if (resolved.ext === 'gif') {
+            const posterBase = (src.split('/').pop() ?? src).replace(/\.gif$/i, '.jpg');
+            const poster = env.resolveAsset(posterBase);
+            if (poster) {
+              token.attrSet('data-src', resolved.url);
+              token.attrSet('data-poster', poster.url);
+              const ci = token.attrIndex('class');
+              token.attrSet('class', (ci >= 0 ? token.attrs![ci][1] + ' ' : '') + 'clip-gif');
+            }
+          }
+        }
       }
     }
     return defaultImage(tokens, idx, options, env, self);

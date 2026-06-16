@@ -35,6 +35,7 @@ export interface CanvasResolved {
   title: string;
   html: string;
   available: boolean;
+  thumbUrl?: string;
 }
 
 export interface CanvasDeps {
@@ -96,6 +97,7 @@ function normalizeNode(node: OCNode, deps: CanvasDeps): CanvasNode {
             ...(anchor ? { anchor } : {}),
             html: resolved.html,
             available: resolved.available,
+            ...(resolved.thumbUrl ? { thumbUrl: resolved.thumbUrl } : {}),
           },
         };
       }

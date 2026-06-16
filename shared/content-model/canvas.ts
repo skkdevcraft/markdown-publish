@@ -36,6 +36,9 @@ export interface FileNotePayload {
   anchor?: string;
   html: string;
   available: boolean;
+  /** Medium-res rendered thumbnail of the note, shown on the board until the
+   *  card is zoomed in (cheap to pan vs. full note DOM). */
+  thumbUrl?: string;
 }
 
 export interface ImagePayload {
