@@ -50,6 +50,7 @@ One click clones the [starter template](https://github.com/abstractwebunit/markd
 - **Search in the browser** ([Pagefind](https://pagefind.app)) — no server, `Ctrl+K`, works offline.
 - **Link graph** (WebGL) — global view + a local graph beside every note; smooth at 1,500+ notes.
 - **Canvas boards** — `.canvas` files ([JSON Canvas](https://jsoncanvas.org)) render as interactive boards: drag, resize, follow links.
+- **Quiz decks** — `.quiz.json` files turn tag-matched notes into self-graded Anki-style review sessions, stats kept in your browser.
 - **Obsidian-flavoured Markdown** — `[[wikilinks]]`, embeds, callouts, tags, footnotes, code highlighting, backlinks, hover previews.
 - **SEO out of the box** — per-page meta/OG/JSON-LD, sitemap, robots.txt, [llms.txt](https://llmstxt.org), and a generated social card with your site's name.
 - **AI-agent ready** — every site exposes [WebMCP](https://github.com/webmachinelearning/webmcp) tools (`search_notes`, `get_note`, …) so agents can query your notes.
@@ -89,7 +90,7 @@ A complete Pages workflow ships in [`templates/publish.yml`](templates/publish.y
 
 ## How it works
 
-A build-time Node parser turns the vault into a content bundle (notes, link graph, canvas models, search docs); an Angular SSG prerenders every route into static HTML. No backend, nothing to maintain — host the output anywhere.
+A build-time Node parser turns the vault into a content bundle (notes, link graph, canvas models, quiz decks, search docs); an Angular SSG prerenders every route into static HTML. No backend, nothing to maintain — host the output anywhere.
 
 ## License
 

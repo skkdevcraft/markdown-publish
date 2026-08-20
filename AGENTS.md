@@ -4,11 +4,11 @@ Build guide for coding agents working in this repo. Everything below was verifie
 
 ## 1. Project overview
 
-**markdown-publish** (`@abstractwebunit/markdown-publish`, v1.0.6) turns an Obsidian/Markdown vault (a folder of `.md` notes, `.canvas` boards, and assets) into a fully static website with instant search, an interactive link graph, and canvas boards. It ships as an **npm CLI** + **GitHub Action**; consumers deploy the output anywhere (GitHub Pages / Netlify / Vercel / Cloudflare).
+**markdown-publish** (`@abstractwebunit/markdown-publish`, v1.0.6) turns an Obsidian/Markdown vault (a folder of `.md` notes, `.canvas` boards, `.quiz.json` decks, and assets) into a fully static website with instant search, an interactive link graph, canvas boards, and quiz decks. It ships as an **npm CLI** + **GitHub Action**; consumers deploy the output anywhere (GitHub Pages / Netlify / Vercel / Cloudflare).
 
 The build pipeline has two stages:
 
-1. **Build-time vault parser** (Node, `tools/vault-parser/`) — walks the vault, renders Markdown (wikilinks, embeds, callouts, tags, footnotes) to HTML, and emits a JSON "content bundle" into `src/content/` (notes, canvas models, link graph, search index, manifest, hashed assets).
+1. **Build-time vault parser** (Node, `tools/vault-parser/`) — walks the vault, renders Markdown (wikilinks, embeds, callouts, tags, footnotes) to HTML, and emits a JSON "content bundle" into `src/content/` (notes, canvas models, quiz decks, link graph, search index, manifest, hashed assets).
 2. **Angular SSG prerender** — an Angular 22 app (`src/`) consumes that bundle at build time, prerenders every route to static HTML (`outputMode: static`), then Pagefind + small Node scripts add search, SEO files, and a social card.
 
 The repo **dogfoods the product**: the docs site (abstractwebunit.github.io/markdown-publish-docs) is built by this tool, and `tools/fixtures/vault/` is the test vault used to exercise the pipeline.
@@ -36,14 +36,14 @@ The repo **dogfoods the product**: the docs site (abstractwebunit.github.io/mark
 
 ```
 tools/cli/            CLI: cli.mjs (entry), resolve-config.mjs, run-build.mjs (+ node:test specs)
-tools/vault-parser/   Build-time vault→JSON pipeline: parse-vault.ts, markdown.ts, canvas.ts, slug.ts, run.ts
+tools/vault-parser/   Build-time vault→JSON pipeline: parse-vault.ts, markdown.ts, canvas.ts, quiz.ts, slug.ts, run.ts
 tools/gen-seo.mjs     Post-build: robots.txt, sitemap.xml, llms.txt, 404.html
 tools/gen-og.mjs      Post-build: og.png social card (1200x630)
 tools/static-serve.mjs  Local static file server (SPA fallback), default port 4301
-tools/fixtures/vault/ Test vault (Home.md, Secret.md, Notes/, Board.canvas, diagram.png)
+tools/fixtures/vault/ Test vault (Home.md, Secret.md, Notes/, Board.canvas, Quiz/Spanish.quiz.json, diagram.png)
 
 shared/content-model/ Shared TS types consumed by BOTH parser and Angular app (path alias @shared/*):
-                      manifest.ts, note.ts, canvas.ts, graph.ts, search.ts, obsidian.ts
+                      manifest.ts, note.ts, canvas.ts, quiz.ts, graph.ts, search.ts, obsidian.ts
 
 src/                  Angular SSG app (the site frontend)
   main.ts             Browser bootstrap
@@ -53,7 +53,8 @@ src/                  Angular SSG app (the site frontend)
   app/                app.config.ts, app.routes.ts, app.spec.ts, shell/, views/, content/, search/,
                       graph/, canvas/, nav/, aside/, seo/, theme/, webmcp/
   styles.scss         Global styles
-  content/            GENERATED — vault-parser output (gitignored; also excludes from npm publish)
+  content/            GENERATED — vault-parser output: notes/, canvas/, quiz/, assets/, graph.json,
+                      search-index.json, manifest.json (gitignored; also excludes from npm publish)
 
 public/               Static assets copied verbatim: favicon.svg, og-default.png
 
@@ -79,7 +80,7 @@ action.yml            Composite GitHub Action definition for consumers
 
 **Angular app** (runtime data flow):
 - `src/main.ts` bootstraps `App` → `AppShell` (sidebar nav, theme toggle, search overlay) + router outlet.
-- Routes (`app.routes.ts`): `''` → redirect to home note (`manifest.site.homeSlug`); `graph` → `GraphView`; `**` → `RouteDispatch`, which looks the slug up in the manifest and renders `NoteView` / `CanvasView` / `NotFound`.
+- Routes (`app.routes.ts`): `''` → redirect to home note (`manifest.site.homeSlug`); `graph` → `GraphView`; `**` → `RouteDispatch`, which looks the slug up in the manifest and renders `NoteView` / `CanvasView` / `QuizView` / `NotFound`.
 - `ContentService` (browser: `fetch` of `/content/...` resolved against `<base href>`) vs `ServerContentService` (prerender: `fs` read of `src/content`) — swapped by DI in `app.config.server.ts`. **This is the key browser/server boundary.**
 - `SeoService` writes title/meta/OG/JSON-LD into the (domino) document so it lands in prerendered HTML.
 - `WebmcpService` registers agent tools (`search_notes`, `get_note`, `list_notes`, `get_backlinks`) on `navigator.modelContext` via a zero-dependency polyfill.
@@ -122,7 +123,7 @@ Two separate test suites, **two different runners**:
 | CLI / build pipeline | Node built-in `node:test` | `npm run test:cli` | `tools/cli/*.test.mjs` |  |
 | Angular app | Vitest via `@angular/build:unit-test` builder | `npm test` | `src/**/*.spec.ts` |  |
 
-- `npm run test:cli` — runs `node --test "tools/cli/**/*.test.mjs"`. Includes `build.test.mjs`, a full end-to-end build of `tools/fixtures/vault` into a temp dir (asserts sitemap, robots, llms, pagefind, og.png dimensions, base-href behavior, wikilink hrefs).
+- `npm run test:cli` — runs `node --test "tools/cli/**/*.test.mjs"`. Includes `build.test.mjs`, a full end-to-end build of `tools/fixtures/vault` into a temp dir (asserts sitemap, robots, llms, pagefind, og.png dimensions, base-href behavior, wikilink hrefs), and `quiz-public-mode.test.mjs`, a fast parser-level test (spawns only `tsx run.ts`, no `ng build`) proving private notes never reach quiz decks in `public` builds.
 - `npm test` — Vitest, config from the Angular builder (no `vitest.config.*` file exists; `tsconfig.spec.json` adds `vitest/globals` types). Single file: `ng test --include src/app/app.spec.ts` (or pass the file path to `--include`).
 
 ## 7. Code quality
@@ -138,6 +139,7 @@ Two separate test suites, **two different runners**:
 
 - **Angular:** standalone components only, `ChangeDetectionStrategy.OnPush`, signals + `resource()` + `toSignal`, new `@if/@for/@switch` control flow, inject-function DI (no constructor injection). Kebab-case file names matching class name (`app-shell.ts` → `AppShell`), `selector: 'app-…'`.
 - **Shared types:** all cross-boundary types live in `shared/content-model/`, imported via the `@shared/*` path alias (defined in `tsconfig.json`, `tsconfig.app.json`, `tools/tsconfig.json`). The parser and the Angular app must agree on these — change them in one place.
+- **Manifest kinds:** `RouteEntry.kind` is `'note' | 'canvas' | 'quiz'` and `NavNode.type` is `'folder' | 'note' | 'canvas' | 'quiz'` — quiz decks are a first-class route kind (manifest routes, nav leaves with a question-mark icon, `QuizView`), but deliberately get no link-graph nodes, WebMCP tools, or search-index entries.
 - **Env contract:** `run-build.mjs` exports a documented set of env vars to subprocesses; tools read `process.env` (see `run.ts`, `gen-seo.mjs`, `gen-og.mjs`). Keep this contract in sync when adding build options.
 - **URLs are base-relative** (no leading `/`) so sites work under a GitHub Pages subpath (`user.github.io/repo/`): wikilink hrefs, asset URLs, and `ContentService` fetches all resolve against `<base href>`. Root-absolute URLs 404 on subpath deployments — a recurring bug class (see commit history).
 - **Slugs:** Unicode-aware kebab (Cyrillic/CJK survive; emoji/punctuation dropped), vault-relative path without extension. See `tools/vault-parser/slug.ts`.
