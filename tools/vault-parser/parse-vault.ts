@@ -13,6 +13,7 @@ import type {
   LinkRef,
   ObsidianCanvas,
   CanvasModel,
+  Quiz,
   GraphData,
   GraphLink,
   SearchDoc,
@@ -29,6 +30,7 @@ import {
   makeCanvasEnv,
   type CanvasResolved,
 } from './canvas';
+import { normalizeQuiz, noteInDeck } from './quiz';
 
 const ASSET_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'pdf', 'mp4', 'mp3'];
 const MAX_EMBED_DEPTH = 3;
@@ -94,6 +96,12 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
     cwd: vaultDir,
     ignore: ['.obsidian/**', '.trash/**'],
     dot: false,
+  });
+  const quizFiles = await fg('**/*.quiz.json', {
+    cwd: vaultDir,
+    ignore: ['.obsidian/**', '.trash/**'],
+    dot: false,
+    caseSensitiveMatch: false,
   });
 
   // 2. Route map + basename index (notes)
@@ -206,11 +214,59 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
     if (!canvasByBase.has(key)) canvasByBase.set(key, entry);
   }
 
+  // 2b. Parse quizzes. A note/canvas that already owns the slug wins the route
+  // (author error → soft-skip with a warning, same policy as schema errors);
+  // the same applies to a second quiz claiming the same slug.
+  const quizByBase = new Map<string, { slug: string; title: string }>();
+  const quizSlugs = new Set<string>();
+  const parsedQuizzes: Quiz[] = [];
+  const canvasSlugs = new Set(canvasFiles.map((rel) => pathToSlug(rel)));
+  for (const rel of quizFiles) {
+    const slug = pathToSlug(rel.replace(/\.quiz\.json$/i, ''));
+    if (bySlug.has(slug) || canvasSlugs.has(slug) || quizSlugs.has(slug)) {
+      console.warn(`quiz: skipping "${rel}" — slug "${slug}" already taken`);
+      continue;
+    }
+    quizSlugs.add(slug);
+    // Unparseable JSON is a hard build error (canvas precedent) — no try/catch.
+    const raw = JSON.parse(await fs.readFile(path.join(vaultDir, rel), 'utf8')) as unknown;
+    const fallbackTitle = (rel.split('/').pop() ?? rel).replace(/\.quiz\.json$/i, '');
+    const source = normalizeQuiz(raw, fallbackTitle);
+    if (!source) {
+      console.warn(
+        `quiz: skipping "${rel}" — tags must be a non-empty array of strings`,
+      );
+      continue;
+    }
+    // Matching runs against the mode-filtered note set (`notes`), so private
+    // notes never reach decks in public builds. A note is in the deck iff it
+    // has ALL deck tags (case-insensitive, Obsidian nested-tag semantics).
+    // Zero matches is legitimate: the deck ships with an empty pool.
+    const matched = notes
+      .filter((n) => noteInDeck(n.tags, source.tags))
+      .map((n) => ({ slug: n.slug, title: n.title }))
+      .sort((a, b) => a.slug.localeCompare(b.slug)); // reproducible output
+    const quiz: Quiz = {
+      slug,
+      title: source.title,
+      description: source.description,
+      tags: source.tags,
+      notes: matched,
+    };
+    parsedQuizzes.push(quiz);
+    // Basename keeps `.quiz` (baseName strips only the last extension), so
+    // [[Spanish.quiz.json]] resolves here while plain [[Spanish]] does not
+    // collide with notes.
+    quizByBase.set(baseName(rel).toLowerCase(), { slug, title: quiz.title });
+  }
+
   function resolveLink(target: string): ResolveResult {
     const n = resolveNote(target);
     if (n) return { slug: n.slug, title: n.title };
     const c = canvasByBase.get(baseName(target).toLowerCase());
     if (c) return c;
+    const q = quizByBase.get(baseName(target).toLowerCase());
+    if (q) return q;
     return { slug: null, title: target };
   }
 
@@ -381,6 +437,14 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
     await fs.writeFile(file, JSON.stringify(c.model, null, 2), 'utf8');
   }
 
+  const quizOutDir = path.join(outDir, 'quiz');
+  await fs.mkdir(quizOutDir, { recursive: true });
+  for (const q of parsedQuizzes) {
+    const file = path.join(quizOutDir, `${q.slug}.json`);
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, JSON.stringify(q, null, 2), 'utf8');
+  }
+
   // link graph: nodes = notes, edges = resolved internal outgoing links
   // (deduped undirected, self-links dropped). degree drives node sizing.
   const slugSet = new Set(parsedNotes.map((p) => p.slug));
@@ -443,6 +507,11 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
       kind: 'canvas' as const,
       title: c.title,
     })),
+    ...parsedQuizzes.map((q) => ({
+      slug: q.slug,
+      kind: 'quiz' as const,
+      title: q.title,
+    })),
   ];
   routes.sort((a, b) => a.slug.localeCompare(b.slug));
 
@@ -479,6 +548,11 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
       slug: c.slug,
       title: c.title,
       type: 'canvas' as const,
+    })),
+    ...parsedQuizzes.map((q) => ({
+      slug: q.slug,
+      title: q.title,
+      type: 'quiz' as const,
     })),
   ]);
 
@@ -574,7 +648,7 @@ function extractSection(content: string, heading: string): string {
 interface NavEntry {
   slug: string;
   title: string;
-  type: 'note' | 'canvas';
+  type: 'note' | 'canvas' | 'quiz';
 }
 
 /** Build a folder tree NavNode[] from note/canvas slugs. */

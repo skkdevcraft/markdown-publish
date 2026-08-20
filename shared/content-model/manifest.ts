@@ -18,12 +18,12 @@ export interface Manifest {
 
 export interface RouteEntry {
   slug: string;
-  kind: 'note' | 'canvas';
+  kind: 'note' | 'canvas' | 'quiz';
   title: string;
 }
 
 export interface NavNode {
-  type: 'folder' | 'note' | 'canvas';
+  type: 'folder' | 'note' | 'canvas' | 'quiz';
   name: string;
   slug?: string;
   children?: NavNode[];

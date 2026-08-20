@@ -42,6 +42,8 @@ function resolveBinJs(pkg, binName) {
   return resolve(pkgDir, rel);
 }
 
+export { resolveBinJs };
+
 const BIN = {
   tsx: resolveBinJs('tsx'),
   ng: resolveBinJs('@angular/cli', 'ng'),

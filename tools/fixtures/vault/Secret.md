@@ -1,6 +1,8 @@
 ---
 title: Secret
 publish: private
+tags:
+    - quiz
 ---
 
 # Secret

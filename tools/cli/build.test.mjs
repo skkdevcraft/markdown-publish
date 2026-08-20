@@ -44,5 +44,53 @@ test('builds the fixtures vault into a complete static site under a base href', 
   const home = readFileSync(join(out, 'content', 'notes', 'home.json'), 'utf8');
   assert.doesNotMatch(home, /class=\\"wikilink\\" href=\\"\//, 'root-absolute wikilink href found');
   assert.match(home, /class=\\"wikilink\\" href=\\"[^/]/, 'no base-relative wikilink href found');
+  // --- quiz decks ---
+  // full mode: the Spanish deck matches every note tagged `quiz` (Word,
+  // Palabra, Secret — including the private one), sorted by slug.
+  const deck = JSON.parse(
+    readFileSync(join(out, 'content', 'quiz', 'quiz', 'spanish.json'), 'utf8'),
+  );
+  assert.equal(deck.title, 'Spanish');
+  assert.equal(deck.description, 'Do you remember these words?');
+  assert.deepEqual(deck.tags, ['quiz']);
+  // Secret.md sits at the vault ROOT, so its slug is `secret` — the sort is
+  // by slug: quiz/palabra < quiz/word < secret.
+  assert.deepEqual(deck.notes, [
+    { slug: 'quiz/palabra', title: 'Palabra' },
+    { slug: 'quiz/word', title: 'Word' },
+    { slug: 'secret', title: 'Secret' },
+  ]);
+  // the deck route lands in the manifest alongside notes and canvases
+  const manifest = JSON.parse(
+    readFileSync(join(out, 'content', 'manifest.json'), 'utf8'),
+  );
+  assert.ok(
+    manifest.routes.some(
+      (r) => r.slug === 'quiz/spanish' && r.kind === 'quiz' && r.title === 'Spanish',
+    ),
+    'quiz route missing from manifest',
+  );
+  // ...and in the nav tree as a quiz leaf under the `quiz` folder
+  const quizFolder = manifest.nav.find(
+    (n) => n.type === 'folder' && n.name === 'quiz',
+  );
+  assert.ok(quizFolder, 'quiz folder missing from nav');
+  assert.ok(
+    quizFolder.children.some(
+      (c) => c.type === 'quiz' && c.slug === 'quiz/spanish',
+    ),
+    'quiz leaf missing from nav',
+  );
+  // the route is prerendered (start-screen shell) and listed in the sitemap
+  assert.ok(
+    existsSync(join(out, 'quiz', 'spanish', 'index.html')),
+    'quiz route not prerendered',
+  );
+  assert.match(
+    sitemap,
+    /http:\/\/localhost\/sub\/quiz\/spanish/,
+    'sitemap missing the quiz URL',
+  );
+
   rmSync(out, { recursive: true, force: true });
 }, { timeout: 180000 });
