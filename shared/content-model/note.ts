@@ -9,6 +9,8 @@ export interface Note {
   outgoing: LinkRef[];
   frontmatter: Record<string, unknown>;
   publish: 'public' | 'private';
+  /** Frontmatter `tags`, flattened + deduped (possibly empty). */
+  tags: string[];
 }
 
 export interface Heading {

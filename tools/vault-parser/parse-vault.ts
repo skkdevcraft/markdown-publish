@@ -60,6 +60,8 @@ interface NoteEntry {
   content: string;
   publish: 'public' | 'private';
   title: string;
+  /** Frontmatter `tags`, flattened + deduped (possibly empty). */
+  tags: string[];
 }
 
 interface AssetEntry {
@@ -112,6 +114,7 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
       content: parsed.content,
       publish,
       title: '',
+      tags: parseTags(data),
     });
   }
 
@@ -298,6 +301,7 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
       outgoing,
       frontmatter: n.data,
       publish: n.publish,
+      tags: n.tags,
     });
   }
 
@@ -496,6 +500,29 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
     JSON.stringify(manifest, null, 2),
     'utf8',
   );
+}
+
+/** Parse frontmatter `tags` into a flat, deduped string list. Handles the
+ *  shapes Obsidian writes: a flow/block YAML list (`[a, b]` / `- a`), a
+ *  comma-separated string (`a, b` — gray-matter yields one string), or a
+ *  bare string. Strips a leading `#` (Obsidian accepts `tags: "#foo"`) and
+ *  keeps nested tags (`foo/bar`) as-is. */
+function parseTags(data: Record<string, unknown>): string[] {
+  const raw = data.tags;
+  if (raw == null) return [];
+  const out = new Set<string>();
+  const collect = (v: unknown): void => {
+    if (Array.isArray(v)) {
+      v.forEach(collect);
+    } else if (typeof v === 'string') {
+      for (const t of v.split(',')) {
+        const tag = t.trim().replace(/^#/, '');
+        if (tag) out.add(tag);
+      }
+    }
+  };
+  collect(raw);
+  return [...out];
 }
 
 /** Strip markdown syntax to readable plain text (for search scoring/snippets
