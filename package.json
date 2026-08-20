@@ -31,7 +31,7 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test",
+    "test": "ng test --watch=false",
     "serve:ssr:markdown-publish": "node dist/markdown-publish/server/server.mjs",
     "parse": "tsx tools/vault-parser/run.ts",
     "build:content": "tsx tools/vault-parser/run.ts",
