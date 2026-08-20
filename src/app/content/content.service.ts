@@ -4,6 +4,7 @@ import type {
   GraphData,
   Manifest,
   Note,
+  Quiz,
   SearchIndex,
 } from '@shared/content-model';
 
@@ -32,6 +33,10 @@ export class ContentService {
 
   loadCanvas(slug: string): Promise<CanvasModel> {
     return this.read<CanvasModel>(`canvas/${safeSlug(slug)}.json`);
+  }
+
+  loadQuiz(slug: string): Promise<Quiz> {
+    return this.read<Quiz>(`quiz/${safeSlug(slug)}.json`);
   }
 
   async loadGraph(): Promise<GraphData> {

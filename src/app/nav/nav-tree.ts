@@ -73,6 +73,23 @@ import type { NavNode } from '@shared/content-model';
                   <rect width="7" height="9" x="14" y="12" rx="1" />
                   <rect width="7" height="5" x="3" y="16" rx="1" />
                 </svg>
+              } @else if (node.type === 'quiz') {
+                <svg
+                  class="quiz-icon"
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-label="Quiz"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <path d="M12 17h.01" />
+                </svg>
               }
             </span>
             <span class="tree-item-inner">{{ node.name }}</span>
@@ -144,6 +161,10 @@ import type { NavNode } from '@shared/content-model';
       }
 
       .canvas-icon {
+        color: var(--text-faint);
+      }
+
+      .quiz-icon {
         color: var(--text-faint);
       }
 

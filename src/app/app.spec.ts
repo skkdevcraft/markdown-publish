@@ -32,6 +32,9 @@ const contentStub = {
   loadCanvas: async () => {
     throw new Error('loadCanvas not stubbed');
   },
+  loadQuiz: async () => {
+    throw new Error('loadQuiz not stubbed');
+  },
   loadGraph: async () => {
     throw new Error('loadGraph not stubbed');
   },

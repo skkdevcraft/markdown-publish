@@ -12,12 +12,13 @@ import { ContentService } from '../content/content.service';
 import { SeoService } from '../seo/seo.service';
 import { NoteView } from './note-view';
 import { CanvasView } from './canvas-view';
+import { QuizView } from './quiz-view';
 import { NotFound } from './not-found';
 
 @Component({
   selector: 'app-route-dispatch',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NoteView, CanvasView, NotFound],
+  imports: [NoteView, CanvasView, QuizView, NotFound],
   styles: [':host { display: contents; }'],
   template: `
     @if (manifest.value()) {
@@ -27,6 +28,9 @@ import { NotFound } from './not-found';
         }
         @case ('canvas') {
           <app-canvas-view [slug]="slug()" />
+        }
+        @case ('quiz') {
+          <app-quiz-view [slug]="slug()" />
         }
         @default {
           <app-not-found />

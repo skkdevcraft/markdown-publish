@@ -91,6 +91,15 @@ test('builds the fixtures vault into a complete static site under a base href', 
     /http:\/\/localhost\/sub\/quiz\/spanish/,
     'sitemap missing the quiz URL',
   );
+  // the prerendered shell is the crawlable start screen: title, description,
+  // matched-note count and the start button — no session UI, no stats
+  const quizHtml = readFileSync(join(out, 'quiz', 'spanish', 'index.html'), 'utf8');
+  assert.match(quizHtml, />Spanish</, 'quiz page missing the deck title');
+  assert.match(quizHtml, /Do you remember these words\?/, 'quiz page missing the description');
+  assert.match(quizHtml, />\s*3 notes\s*</, 'quiz page missing the matched-note count');
+  assert.match(quizHtml, /Start quiz/, 'quiz page missing the start button');
+  assert.doesNotMatch(quizHtml, /End session/, 'quiz page prerendered session UI');
+  assert.doesNotMatch(quizHtml, /This session:/, 'quiz page prerendered the end screen');
 
   rmSync(out, { recursive: true, force: true });
 }, { timeout: 180000 });
