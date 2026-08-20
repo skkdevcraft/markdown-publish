@@ -125,7 +125,7 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
   for (const n of notes) {
     const fmTitle = typeof n.data.title === 'string' ? n.data.title : null;
     const h1 = /^#\s+(.+)$/m.exec(n.content);
-    n.title = fmTitle ?? (h1 ? h1[1].trim() : n.base);
+    n.title = (h1 && h1[1].trim()) || fmTitle || n.base;
   }
 
   // video-id -> note index. Video notes are named `YYYY-MM-DD-<youtubeId>`,
