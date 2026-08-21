@@ -4,12 +4,12 @@
 
 **Blocked by:** 01 — Parser: emit the tag index (tags.json) + shared model
 
-**Status:** ready-for-agent
+**Status:** implemented
 
-- [ ] Visiting `/tags` renders every tag as a `#name` pill with its count badge, ordered count-descending then name-ascending, each linking to its quiz route.
-- [ ] `/tags` is prerendered to static HTML with title "Tags", a description that mentions the tag count, and a canonical URL; it is listed in the sitemap.
-- [ ] A vault with no tags renders an empty state, not an error.
-- [ ] `tags/<tag>` quiz URLs still dispatch to the quiz view — the `/tags` route registration does not shadow them (exact match only).
-- [ ] The sidebar shows a "Tags" link beside the graph link that navigates to `/tags`.
-- [ ] The tag index loads through the shared content service so both browser and prerender paths read the same bundle file.
-- [ ] Test coverage: the full-pipeline build test asserts the prerendered `/tags` HTML renders the tag pill, count, and link, and that the sitemap includes `/tags`.
+- [x] Visiting `/tags` renders every tag as a `#name` pill with its count badge, ordered count-descending then name-ascending, each linking to its quiz route.
+- [x] `/tags` is prerendered to static HTML with title "Tags", a description that mentions the tag count, and a canonical URL; it is listed in the sitemap.
+- [x] A vault with no tags renders an empty state, not an error.
+- [x] `tags/<tag>` quiz URLs still dispatch to the quiz view — the `/tags` route registration does not shadow them (exact match only).
+- [x] The sidebar shows a "Tags" link beside the graph link that navigates to `/tags`.
+- [x] The tag index loads through the shared content service so both browser and prerender paths read the same bundle file.
+- [x] Test coverage: the full-pipeline build test asserts the prerendered `/tags` HTML renders the tag pill, count, and link, and that the sitemap includes `/tags`.
