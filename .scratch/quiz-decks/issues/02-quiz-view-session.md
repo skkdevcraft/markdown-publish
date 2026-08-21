@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 — Parser: quiz deck discovery, validation & bundle emission.
 
-**Status:** ready-for-agent
+**Status:** implemented
 
 - [ ] The quiz route renders the view (route dispatch gains a `quiz` case; content loading via the new `loadQuiz`, same traversal guard as notes); the nav tree shows quiz leaves with their own icon.
 - [ ] Start screen (default state): title, description, matched-note count ("12 notes"), cumulative progress ("9 of 12 reviewed · 7 known", browser only); "Start quiz" shuffles the pool (Fisher–Yates) into the session. Empty pool → "No notes match these tags yet" message, no start button.

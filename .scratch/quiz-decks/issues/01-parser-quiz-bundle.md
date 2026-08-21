@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** implemented
 
 - [ ] A `*.quiz.json` file anywhere in the vault (standard walk ignore rules) is discovered and emitted as a deck bundle; the slug is derived by stripping the compound `.quiz.json` extension before slugification (e.g. `Quiz/Spanish.quiz.json` → `quiz/spanish`), reusing the existing slug helpers.
 - [ ] Unparseable JSON is a hard build error (canvas precedent); `tags` missing, empty, or not an array of strings skips the file with a console warning instead of failing the build. Tag normalization mirrors notes: strip leading `#`, trim, drop empties, dedupe.

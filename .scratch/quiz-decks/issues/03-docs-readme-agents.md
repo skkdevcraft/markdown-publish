@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — QuizView: start / session / end screens, reveal, stats, SEO + routing plumbing.
 
-**Status:** ready-for-agent
+**Status:** implemented
 
 - [ ] README gains a quiz-decks feature bullet: `.quiz.json` files turn tag-matched notes into self-graded Anki-style review sessions, stats kept in the browser; the "How it works" line mentions the content bundle now ships quiz decks.
 - [ ] AGENTS.md §1 (project overview) notes the content bundle includes quiz decks; §3 (repository structure) notes the new quiz parsing, the quiz content output, and the new shared content-model file; §7 (testing) lists the new public-mode parser test; §8 (conventions) documents the new `RouteEntry.kind: 'quiz'` and `NavNode.type: 'quiz'` values.

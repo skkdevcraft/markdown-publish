@@ -5,7 +5,7 @@ file in the vault defines a deck; the parser resolves which notes belong to it
 at build time; the Angular app runs the session entirely client-side with
 per-card stats persisted in `localStorage` (no backend).
 
-Status: agreed spec (interview complete). Not yet implemented.
+Status: implemented
 
 ---
 
