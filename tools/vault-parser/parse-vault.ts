@@ -31,6 +31,7 @@ import {
   type CanvasResolved,
 } from './canvas';
 import { normalizeQuiz, noteInDeck } from './quiz';
+import { buildTagIndex } from './tags';
 
 const ASSET_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'pdf', 'mp4', 'mp3'];
 const MAX_EMBED_DEPTH = 3;
@@ -260,6 +261,19 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
     quizByBase.set(baseName(rel).toLowerCase(), { slug, title: quiz.title });
   }
 
+  // Tag index: every frontmatter tag on a surviving note becomes a row (case-
+  // grouped, Obsidian nested-tag counts), emitted as tags.json for the Tags
+  // view. Real content routes (notes/canvases/quizzes) win slug collisions —
+  // a tag whose route is taken is dropped with a warning, so nothing in the
+  // index points at a route that doesn't exist. `result.tagSlugs` (the
+  // surviving route slugs) is consumed by the inline-tag link rule in the
+  // shared markdown factory (ticket 03) — computed here, before rendering,
+  // because frontmatter is already parsed.
+  const tagIndexResult = buildTagIndex(
+    notes,
+    new Set<string>([...bySlug.keys(), ...canvasSlugs, ...quizSlugs]),
+  );
+
   function resolveLink(target: string): ResolveResult {
     const n = resolveNote(target);
     if (n) return { slug: n.slug, title: n.title };
@@ -444,6 +458,14 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.writeFile(file, JSON.stringify(q, null, 2), 'utf8');
   }
+
+  // tag index: topics + counts for the Tags view; quiz bodies stay in their
+  // per-tag generated decks (ticket 02), so this file stays lean.
+  await fs.writeFile(
+    path.join(outDir, 'tags.json'),
+    JSON.stringify(tagIndexResult.index, null, 2),
+    'utf8',
+  );
 
   // link graph: nodes = notes, edges = resolved internal outgoing links
   // (deduped undirected, self-links dropped). degree drives node sizing.

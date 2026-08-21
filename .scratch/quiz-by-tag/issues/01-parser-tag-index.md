@@ -4,14 +4,14 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** implemented
 
-- [ ] A vault with zero tags emits an empty (but valid) tag index; a normal vault emits one row per surviving frontmatter tag.
-- [ ] Case variants (`Spanish`, `spanish`) collapse into one row whose display casing is the most frequent, tie-broken by slug order for determinism.
-- [ ] Nested tags follow Obsidian semantics: `spanish` counts notes tagged `spanish` or `spanish/…`, and `spanish/verbs` appears as its own row — counts may overlap across rows.
-- [ ] Each row's count is computed by the same note-matching semantics the quiz decks will use, and equals the number of notes the deck will contain.
-- [ ] Slugs are per-segment slugified (`spanish/verbs` → `tags/spanish/verbs`; `foo bar` → `tags/foo-bar`); two distinct tags slugifying to the same route get deterministic `-2`, `-3`, … suffixes in canonical-name order, both reachable.
-- [ ] A tag whose `tags/<slug>` collides with a real note/canvas/quiz route is dropped from the index with a console warning; the build still exits 0.
-- [ ] Rows are sorted count-descending then name-ascending; output is byte-identical across repeated builds.
-- [ ] In a public build, private notes contribute nothing to tag counts and never appear in the index.
-- [ ] The new parser-level test suite (fast spawn pattern, synthetic temp vault) covers: case grouping + display casing, nested counts, per-segment slugs, suffix disambiguation, real-route collision (dropped + exit 0), and the public-mode count filter; the existing public-mode test asserts public-only index counts.
+- [x] A vault with zero tags emits an empty (but valid) tag index; a normal vault emits one row per surviving frontmatter tag.
+- [x] Case variants (`Spanish`, `spanish`) collapse into one row whose display casing is the most frequent, tie-broken by slug order for determinism.
+- [x] Nested tags follow Obsidian semantics: `spanish` counts notes tagged `spanish` or `spanish/…`, and `spanish/verbs` appears as its own row — counts may overlap across rows.
+- [x] Each row's count is computed by the same note-matching semantics the quiz decks will use, and equals the number of notes the deck will contain.
+- [x] Slugs are per-segment slugified (`spanish/verbs` → `tags/spanish/verbs`; `foo bar` → `tags/foo-bar`); two distinct tags slugifying to the same route get deterministic `-2`, `-3`, … suffixes in canonical-name order, both reachable.
+- [x] A tag whose `tags/<slug>` collides with a real note/canvas/quiz route is dropped from the index with a console warning; the build still exits 0.
+- [x] Rows are sorted count-descending then name-ascending; output is byte-identical across repeated builds.
+- [x] In a public build, private notes contribute nothing to tag counts and never appear in the index.
+- [x] The new parser-level test suite (fast spawn pattern, synthetic temp vault) covers: case grouping + display casing, nested counts, per-segment slugs, suffix disambiguation, real-route collision (dropped + exit 0), and the public-mode count filter; the existing public-mode test asserts public-only index counts.

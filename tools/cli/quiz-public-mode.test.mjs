@@ -38,6 +38,11 @@ test('public build excludes private notes from quiz decks', () => {
       'private notes leaked into the public-mode deck',
     );
     assert.equal(deck.notes.length, 2, 'expected exactly the two public notes');
+    // Tag index in public builds: the `quiz` tag survives the mode filter and
+    // counts only the two public notes — Secret.md is private and must not
+    // contribute to tag counts.
+    const tags = JSON.parse(readFileSync(join(out, 'tags.json'), 'utf8'));
+    assert.deepEqual(tags.tags, [{ name: 'quiz', slug: 'tags/quiz', count: 2 }]);
   } finally {
     rmSync(out, { recursive: true, force: true });
   }

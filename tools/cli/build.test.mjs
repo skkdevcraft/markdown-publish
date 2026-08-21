@@ -53,6 +53,13 @@ test('builds the fixtures vault into a complete static site under a base href', 
   assert.equal(deck.title, 'Spanish');
   assert.equal(deck.description, 'Do you remember these words?');
   assert.deepEqual(deck.tags, ['quiz']);
+  // tag index: one row per surviving frontmatter tag; `quiz` counts every
+  // tagged note in full mode (Word, Palabra, Secret) — matching the deck's
+  // note pool.
+  const tags = JSON.parse(
+    readFileSync(join(out, 'content', 'tags.json'), 'utf8'),
+  );
+  assert.deepEqual(tags.tags, [{ name: 'quiz', slug: 'tags/quiz', count: 3 }]);
   // Secret.md sits at the vault ROOT, so its slug is `secret` — the sort is
   // by slug: quiz/palabra < quiz/word < secret.
   assert.deepEqual(deck.notes, [
