@@ -78,6 +78,29 @@ function readTags(out) {
   return JSON.parse(readFileSync(join(out, 'tags.json'), 'utf8'));
 }
 
+/** Generated deck for a tag index row: `quiz/<slug>.json` (the slug carries
+ *  the `tags/` prefix, so the deck lands under quiz/tags/…). */
+function readDeck(out, slug) {
+  return JSON.parse(readFileSync(join(out, 'quiz', `${slug}.json`), 'utf8'));
+}
+
+/** Count-equals-deck-size invariant: every index row's count is exactly the
+ *  generated deck's note pool size (both computed with the same noteInDeck
+ *  semantics), and the deck carries the auto title/description/tags. */
+function assertDeckInvariant(out) {
+  for (const entry of readTags(out).tags) {
+    const deck = readDeck(out, entry.slug);
+    assert.equal(deck.notes.length, entry.count, `deck size != count for ${entry.slug}`);
+    assert.equal(deck.title, `#${entry.name}`, `deck title mismatch for ${entry.slug}`);
+    assert.deepEqual(deck.tags, [entry.name], `deck tags mismatch for ${entry.slug}`);
+    assert.equal(
+      deck.description,
+      `${entry.count} ${entry.count === 1 ? 'note' : 'notes'} tagged #${entry.name}`,
+      `deck description mismatch for ${entry.slug}`,
+    );
+  }
+}
+
 test('tag index: full-mode semantics matrix + deterministic output', () => {
   const vault = mkdtempSync(join(tmpdir(), 'mp-tags-vault-'));
   const runs = [];
@@ -98,6 +121,15 @@ test('tag index: full-mode semantics matrix + deterministic output', () => {
       assert.equal(res.status, 0, `vault parser failed (exit ${res.status})`);
       // one row per surviving tag, sorted count-desc then name-asc
       assert.deepEqual(readTags(res.out).tags, expected);
+      // count-equals-deck-size invariant + deterministic deck output
+      assertDeckInvariant(res.out);
+      for (const entry of expected) {
+        assert.equal(
+          readFileSync(join(runs[0].out, 'quiz', `${entry.slug}.json`), 'utf8'),
+          readFileSync(join(runs[1].out, 'quiz', `${entry.slug}.json`), 'utf8'),
+          `generated deck ${entry.slug} differs across repeated builds`,
+        );
+      }
     }
     assert.equal(
       readFileSync(join(runs[0].out, 'tags.json'), 'utf8'),
@@ -134,6 +166,8 @@ test('tag index: public mode excludes private notes from counts', () => {
       { name: 'foo-bar', slug: 'tags/foo-bar-2', count: 1 },
       { name: 'spanish/verbs/past', slug: 'tags/spanish/verbs/past', count: 1 },
     ]);
+    // generated decks follow the same filtered counts (private notes excluded)
+    assertDeckInvariant(res.out);
   } finally {
     if (res) rmSync(res.out, { recursive: true, force: true });
     rmSync(vault, { recursive: true, force: true });

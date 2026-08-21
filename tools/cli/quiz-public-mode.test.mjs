@@ -43,6 +43,16 @@ test('public build excludes private notes from quiz decks', () => {
     // contribute to tag counts.
     const tags = JSON.parse(readFileSync(join(out, 'tags.json'), 'utf8'));
     assert.deepEqual(tags.tags, [{ name: 'quiz', slug: 'tags/quiz', count: 2 }]);
+    // The generated tag deck applies the same mode filter: Secret.md (private)
+    // stays out, the rest is slug-sorted — identical to the hand-written deck.
+    const tagDeck = JSON.parse(readFileSync(join(out, 'quiz', 'tags', 'quiz.json'), 'utf8'));
+    assert.equal(tagDeck.title, '#quiz');
+    assert.equal(tagDeck.description, '2 notes tagged #quiz');
+    assert.deepEqual(
+      tagDeck.notes.map((n) => n.slug),
+      ['quiz/palabra', 'quiz/word'],
+      'private notes leaked into the generated tag deck',
+    );
   } finally {
     rmSync(out, { recursive: true, force: true });
   }

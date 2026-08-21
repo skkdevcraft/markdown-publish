@@ -88,6 +88,36 @@ test('builds the fixtures vault into a complete static site under a base href', 
     ),
     'quiz leaf missing from nav',
   );
+  // --- generated tag decks ---
+  // The `quiz` tag's generated deck lives under quiz/tags/quiz.json and carries
+  // the auto title/description; its note pool is identical to the hand-written
+  // Spanish deck (same matching semantics).
+  const tagDeck = JSON.parse(
+    readFileSync(join(out, 'content', 'quiz', 'tags', 'quiz.json'), 'utf8'),
+  );
+  assert.equal(tagDeck.title, '#quiz');
+  assert.equal(tagDeck.description, '3 notes tagged #quiz');
+  assert.deepEqual(tagDeck.tags, ['quiz']);
+  assert.deepEqual(tagDeck.notes, deck.notes, 'generated deck pool != hand-written deck pool');
+  // ...registered as a manifest quiz route (title #quiz)…
+  assert.ok(
+    manifest.routes.some(
+      (r) => r.slug === 'tags/quiz' && r.kind === 'quiz' && r.title === '#quiz',
+    ),
+    'generated tag deck route missing from manifest',
+  );
+  // …but NOT a nav leaf, and no `tags` folder is created
+  const findLeaf = (nodes) =>
+    nodes.some(
+      (n) =>
+        (n.type === 'quiz' && n.slug === 'tags/quiz') ||
+        (n.children && findLeaf(n.children)),
+    );
+  assert.ok(!findLeaf(manifest.nav), 'generated tag deck must not be a nav leaf');
+  assert.ok(
+    !manifest.nav.some((n) => n.type === 'folder' && n.name === 'tags'),
+    'tags folder must not appear in nav',
+  );
   // the route is prerendered (start-screen shell) and listed in the sitemap
   assert.ok(
     existsSync(join(out, 'quiz', 'spanish', 'index.html')),
@@ -98,6 +128,20 @@ test('builds the fixtures vault into a complete static site under a base href', 
     /http:\/\/localhost\/sub\/quiz\/spanish/,
     'sitemap missing the quiz URL',
   );
+  // the generated tag quiz is prerendered and listed in the sitemap too
+  assert.ok(
+    existsSync(join(out, 'tags', 'quiz', 'index.html')),
+    'tag quiz route not prerendered',
+  );
+  assert.match(
+    sitemap,
+    /http:\/\/localhost\/sub\/tags\/quiz/,
+    'sitemap missing the tag quiz URL',
+  );
+  const tagHtml = readFileSync(join(out, 'tags', 'quiz', 'index.html'), 'utf8');
+  assert.match(tagHtml, /#quiz/, 'tag quiz page missing the deck title');
+  assert.match(tagHtml, /3 notes tagged #quiz/, 'tag quiz page missing the description');
+  assert.match(tagHtml, />\s*3 notes\s*</, 'tag quiz page missing the matched-note count');
   // the prerendered shell is the crawlable start screen: title, description,
   // matched-note count and the start button — no session UI, no stats
   const quizHtml = readFileSync(join(out, 'quiz', 'spanish', 'index.html'), 'utf8');

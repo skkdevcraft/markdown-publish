@@ -77,6 +77,20 @@ interface AssetEntry {
   hash?: string;
 }
 
+/** Match + slug-sort a deck's note pool against the mode-filtered note set:
+ *  ALL tags required, case-insensitive, Obsidian nested-tag semantics. Shared
+ *  by hand-written decks and generated tag decks so the two pools can never
+ *  drift apart (the tag-index count invariant depends on this exact shape). */
+function matchDeckNotes(
+  notes: readonly NoteEntry[],
+  tags: string[],
+): { slug: string; title: string }[] {
+  return notes
+    .filter((n) => noteInDeck(n.tags, tags))
+    .map((n) => ({ slug: n.slug, title: n.title }))
+    .sort((a, b) => a.slug.localeCompare(b.slug)); // reproducible output
+}
+
 export async function parseVault(opts: ParseOptions): Promise<void> {
   const vaultDir = path.resolve(opts.vaultDir);
   const outDir = path.resolve(opts.outDir);
@@ -243,10 +257,7 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
     // notes never reach decks in public builds. A note is in the deck iff it
     // has ALL deck tags (case-insensitive, Obsidian nested-tag semantics).
     // Zero matches is legitimate: the deck ships with an empty pool.
-    const matched = notes
-      .filter((n) => noteInDeck(n.tags, source.tags))
-      .map((n) => ({ slug: n.slug, title: n.title }))
-      .sort((a, b) => a.slug.localeCompare(b.slug)); // reproducible output
+    const matched = matchDeckNotes(notes, source.tags);
     const quiz: Quiz = {
       slug,
       title: source.title,
@@ -273,6 +284,31 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
     notes,
     new Set<string>([...bySlug.keys(), ...canvasSlugs, ...quizSlugs]),
   );
+
+  // 2c. Generated tag decks: every surviving tag is a virtual quiz deck at its
+  // index route (`tags/<slug>`), so a visitor can review exactly the notes a
+  // tag counts with the exact existing quiz flow and zero new quiz UI. The
+  // note pool is matched with the SAME noteInDeck semantics the index used
+  // (all-tags-required, case-insensitive, Obsidian nested-tag semantics) and
+  // slug-sorted, so the deck is byte-identical to a hand-written deck with
+  // `tags: [<display>]` — the index's count invariant is a direct consequence
+  // (ticket 02 + tag-index test assert it). These decks are manifest routes
+  // (dispatch/SEO/prerender/sitemap come for free) but deliberately NOT nav
+  // entries: a tags-heavy vault must not clutter the sidebar and no `tags`
+  // folder is created; they also stay out of the graph/search/WebMCP surfaces,
+  // which are notes-only by construction. A tag with zero matched notes ships
+  // an empty pool, like hand-written decks.
+  const tagDecks: Quiz[] = [];
+  for (const tag of tagIndexResult.index.tags) {
+    const matched = matchDeckNotes(notes, [tag.name]);
+    tagDecks.push({
+      slug: tag.slug,
+      title: `#${tag.name}`,
+      description: `${matched.length} ${matched.length === 1 ? 'note' : 'notes'} tagged #${tag.name}`,
+      tags: [tag.name],
+      notes: matched,
+    });
+  }
 
   function resolveLink(target: string): ResolveResult {
     const n = resolveNote(target);
@@ -453,7 +489,10 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
 
   const quizOutDir = path.join(outDir, 'quiz');
   await fs.mkdir(quizOutDir, { recursive: true });
-  for (const q of parsedQuizzes) {
+  for (const q of [...parsedQuizzes, ...tagDecks]) {
+    // Generated decks carry the `tags/` prefix in their slug, so they land
+    // under quiz/tags/<slug>.json — the same shape ContentService.loadQuiz
+    // expects from the route slug.
     const file = path.join(quizOutDir, `${q.slug}.json`);
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.writeFile(file, JSON.stringify(q, null, 2), 'utf8');
@@ -530,6 +569,14 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
       title: c.title,
     })),
     ...parsedQuizzes.map((q) => ({
+      slug: q.slug,
+      kind: 'quiz' as const,
+      title: q.title,
+    })),
+    // Generated tag decks are routes too (so `/tags/<tag>` dispatches, is
+    // prerendered, and lands in the sitemap) — but they are NOT passed to
+    // buildNav below, so no nav leaf / `tags` folder is created.
+    ...tagDecks.map((q) => ({
       slug: q.slug,
       kind: 'quiz' as const,
       title: q.title,
