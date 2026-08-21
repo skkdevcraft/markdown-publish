@@ -178,7 +178,16 @@ function wikilinkRule(md: MarkdownIt): void {
 
 // ---- custom inline rule: tags ----
 
-function tagRule(md: MarkdownIt): void {
+// The inline-tag rule consults the set of tag routes that survived the tag
+// index's collision filtering (ticket 01/03): a tag with a route links
+// base-relatively to its generated quiz deck, a tag without one renders as
+// plain text — never a dead link. The lookup maps a lowercase tag name to its
+// `tags/<slug>` route; it is threaded in through the shared factory, so
+// canvas text nodes get identical behavior for free.
+function tagRule(
+  md: MarkdownIt,
+  tagRouteByLower: ReadonlyMap<string, string> | undefined,
+): void {
   md.inline.ruler.before('text', 'tag', (state, silent) => {
     const pos = state.pos;
     const src = state.src;
@@ -193,8 +202,20 @@ function tagRule(md: MarkdownIt): void {
       state.pos = pos + 1 + tag.length;
       return true;
     }
-    const token = state.push('html_inline', '', 0);
-    token.content = `<a class="tag" href="/tags/${escapeAttr(tag)}">#${escapeHtml(tag)}</a>`;
+    // A surviving tag links to its generated quiz route. The href is
+    // BASE-RELATIVE (no leading slash), like wikilinks, so it resolves
+    // against <base href> and works under a GitHub Pages project-site
+    // subpath; the anchor keeps the raw spelling (`#QUIZ` stays `#QUIZ`)
+    // while the href is the canonical slug. A tag with no route renders as
+    // plain text — no anchor, no dead link.
+    const route = tagRouteByLower?.get(tag.toLowerCase());
+    if (route) {
+      const token = state.push('html_inline', '', 0);
+      token.content = `<a class="tag" href="${escapeAttr(route)}">#${escapeHtml(tag)}</a>`;
+    } else {
+      const token = state.push('text', '', 0);
+      token.content = `#${tag}`;
+    }
     state.pos = pos + 1 + tag.length;
     return true;
   });
@@ -262,7 +283,9 @@ function highlight(str: string, lang: string): string {
   return `<pre class="hljs"><code>${escapeHtml(str)}</code></pre>`;
 }
 
-export function createMarkdown(): MarkdownIt {
+export function createMarkdown(
+  tagRouteByLower?: ReadonlyMap<string, string>,
+): MarkdownIt {
   const md = new MarkdownIt({
     html: false,
     linkify: true,
@@ -278,7 +301,7 @@ export function createMarkdown(): MarkdownIt {
   md.use(taskLists, { enabled: true, label: false });
 
   wikilinkRule(md);
-  tagRule(md);
+  tagRule(md, tagRouteByLower);
   calloutRule(md);
 
   // capture headings during the heading_open render so we can build TOC

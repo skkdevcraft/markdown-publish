@@ -346,7 +346,15 @@ export async function parseVault(opts: ParseOptions): Promise<void> {
     return { url: a.url, ext: a.ext };
   }
 
-  const md = createMarkdown();
+  // Inline-tag link lookup (ticket 03): lowercase tag name → its generated
+  // quiz route (`tags/<slug>`). Built from the index entries so only tags
+  // that survived collision filtering link; an inline tag with no route
+  // renders as plain text (never a dead link). Threaded through the shared
+  // factory, so canvas text nodes get identical behavior.
+  const tagRouteByLower = new Map(
+    tagIndexResult.index.tags.map((t) => [t.name.toLowerCase(), t.slug]),
+  );
+  const md = createMarkdown(tagRouteByLower);
 
   // Render a note's content with a fresh env. Used for top-level notes and,
   // recursively, for embeds (cycle-guarded, depth-limited).

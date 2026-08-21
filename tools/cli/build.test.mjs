@@ -44,6 +44,31 @@ test('builds the fixtures vault into a complete static site under a base href', 
   const home = readFileSync(join(out, 'content', 'notes', 'home.json'), 'utf8');
   assert.doesNotMatch(home, /class=\\"wikilink\\" href=\\"\//, 'root-absolute wikilink href found');
   assert.match(home, /class=\\"wikilink\\" href=\\"[^/]/, 'no base-relative wikilink href found');
+  // inline tags: `#quiz` survives in the tag index (Word, Palabra, Secret
+  // are tagged `quiz`), so it must render as a BASE-RELATIVE link to the
+  // generated tag quiz (`tags/quiz`); the body-only `#project`/`#idea` have
+  // no tag page and must stay plain text — no anchor, no dead link.
+  const homeObj = JSON.parse(home);
+  assert.match(
+    homeObj.html,
+    /<a class="tag" href="tags\/quiz">#quiz<\/a>/,
+    'inline #quiz must link to tags/quiz (base-relative)',
+  );
+  assert.match(
+    homeObj.html,
+    /#project #idea /,
+    'tags without a page must render as plain text',
+  );
+  assert.doesNotMatch(
+    homeObj.html,
+    /<a class="tag"[^>]*href="tags\/project"/,
+    'inline #project must not be a tag link',
+  );
+  assert.doesNotMatch(
+    homeObj.html,
+    /<a class="tag"[^>]*href="tags\/idea"/,
+    'inline #idea must not be a tag link',
+  );
   // --- quiz decks ---
   // full mode: the Spanish deck matches every note tagged `quiz` (Word,
   // Palabra, Secret — including the private one), sorted by slug.

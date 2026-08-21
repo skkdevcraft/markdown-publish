@@ -8,7 +8,7 @@ publish: public
 This is the **home** page. See [[Note B]] and [[Note B|the second note]].
 There is a heading link [[Note B#Details]] and a [[Missing Note]] that is broken.
 
-Tags: #project #idea
+Tags: #project #idea #quiz
 
 ## Embeds
 
