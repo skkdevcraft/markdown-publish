@@ -4,11 +4,11 @@
 
 **Blocked by:** 01 — Parser: emit the tag index (tags.json) + shared model
 
-**Status:** ready-for-agent
+**Status:** implemented
 
-- [ ] An inline tag with a surviving route renders as a tag link whose href is base-relative (no leading slash), so it works under a GitHub Pages subpath.
-- [ ] An inline tag with no tag page renders as plain text — no anchor, no dead link.
-- [ ] Canvas text nodes get identical inline-tag behavior (shared renderer factory).
-- [ ] Tag links in note bodies point at the tag's quiz URL (`tags/<slug>`, matching the generated route).
-- [ ] The fixture home note's tag line includes `#quiz` alongside the existing `#project #idea` inline tags.
-- [ ] Test coverage: the full-pipeline build test asserts the home note's rendered HTML contains a base-relative `href="tags/quiz"` for the inline `#quiz` and **no** `href="tags/project"` / `href="tags/idea"` (plain-text rendering).
+- [x] An inline tag with a surviving route renders as a tag link whose href is base-relative (no leading slash), so it works under a GitHub Pages subpath.
+- [x] An inline tag with no tag page renders as plain text — no anchor, no dead link.
+- [x] Canvas text nodes get identical inline-tag behavior (shared renderer factory).
+- [x] Tag links in note bodies point at the tag's quiz URL (`tags/<slug>`, matching the generated route).
+- [x] The fixture home note's tag line includes `#quiz` alongside the existing `#project #idea` inline tags.
+- [x] Test coverage: the full-pipeline build test asserts the home note's rendered HTML contains a base-relative `href="tags/quiz"` for the inline `#quiz` and **no** `href="tags/project"` / `href="tags/idea"` (plain-text rendering).
