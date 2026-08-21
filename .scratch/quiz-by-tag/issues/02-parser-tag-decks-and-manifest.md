@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 — Parser: emit the tag index (tags.json) + shared model
 
-**Status:** ready-for-agent
+**Status:** implemented
 
 - [ ] Every tag in the index has a generated deck file: title `#<display>`, description `<n> notes tagged #<display>` (correctly singular for 1 note), tags `[<display>]`, notes slug-sorted and identical to the hand-written deck matching for the same tag.
 - [ ] Each generated deck is a manifest route with `kind: 'quiz'` and title `#<display>`; no generated deck appears as a nav leaf (and no `tags` folder is created in the nav).
