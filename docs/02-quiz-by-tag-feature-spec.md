@@ -1,6 +1,6 @@
 # Quiz by tag — feature spec
 
-Status: ready-for-agent
+Status: implemented
 
 A **Tags index view** (`/tags`) listing every frontmatter tag with its note
 count, where clicking a tag opens a **quiz deck of the notes carrying that
