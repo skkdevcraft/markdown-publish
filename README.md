@@ -51,6 +51,7 @@ One click clones the [starter template](https://github.com/abstractwebunit/markd
 - **Link graph** (WebGL) — global view + a local graph beside every note; smooth at 1,500+ notes.
 - **Canvas boards** — `.canvas` files ([JSON Canvas](https://jsoncanvas.org)) render as interactive boards: drag, resize, follow links.
 - **Quiz decks** — `.quiz.json` files turn tag-matched notes into self-graded Anki-style review sessions, stats kept in your browser.
+- **Quiz by tag** — every frontmatter tag is automatically a quiz deck, browsable from the Tags view.
 - **Obsidian-flavoured Markdown** — `[[wikilinks]]`, embeds, callouts, tags, footnotes, code highlighting, backlinks, hover previews.
 - **SEO out of the box** — per-page meta/OG/JSON-LD, sitemap, robots.txt, [llms.txt](https://llmstxt.org), and a generated social card with your site's name.
 - **AI-agent ready** — every site exposes [WebMCP](https://github.com/webmachinelearning/webmcp) tools (`search_notes`, `get_note`, …) so agents can query your notes.

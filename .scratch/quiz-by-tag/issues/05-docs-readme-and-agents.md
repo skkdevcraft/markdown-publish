@@ -4,9 +4,9 @@
 
 **Blocked by:** 02 — Parser: generate tag quiz decks + manifest routes (excluded from nav), 03 — Markdown renderer: inline tag links (base-relative, plain-text fallback), 04 — Angular: Tags index view (/tags) + sidebar link
 
-**Status:** ready-for-agent
+**Status:** implemented
 
-- [ ] README lists the "Quiz by tag" feature in its feature set.
-- [ ] AGENTS.md documents the tag index and generated tag decks in the content-bundle description.
-- [ ] AGENTS.md conventions record that generated tag quizzes are manifest routes excluded from nav and from graph/search/WebMCP surfaces, and that inline-tag links are base-relative.
-- [ ] No version bump is made (release management).
+- [x] README lists the "Quiz by tag" feature in its feature set.
+- [x] AGENTS.md documents the tag index and generated tag decks in the content-bundle description.
+- [x] AGENTS.md conventions record that generated tag quizzes are manifest routes excluded from nav and from graph/search/WebMCP surfaces, and that inline-tag links are base-relative.
+- [x] No version bump is made (release management).
