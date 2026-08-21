@@ -177,5 +177,52 @@ test('builds the fixtures vault into a complete static site under a base href', 
   assert.doesNotMatch(quizHtml, /End session/, 'quiz page prerendered session UI');
   assert.doesNotMatch(quizHtml, /This session:/, 'quiz page prerendered the end screen');
 
+  // --- tags index view (/tags) ---
+  // The index page is prerendered like every other route (title Tags, a
+  // description mentioning the tag count, canonical /tags) and listed in the
+  // sitemap. It renders the tag pill with its count and a link to the
+  // generated quiz; the tag-quiz assertions above keep proving `tags/<tag>`
+  // URLs still dispatch to the quiz view — the route registration is
+  // exact-match (app.routes.ts) and must not shadow them.
+  assert.ok(
+    existsSync(join(out, 'tags', 'index.html')),
+    'tags index not prerendered',
+  );
+  assert.match(
+    sitemap,
+    /http:\/\/localhost\/sub\/tags<\/loc>/,
+    'sitemap missing the tags index URL',
+  );
+  // ...but the tags index is not a note, so it must not leak into llms.txt's
+  // "## Notes" list (like /graph).
+  const llms = readFileSync(join(out, 'llms.txt'), 'utf8');
+  assert.doesNotMatch(llms, /\[\/tags\]/, 'tags index must not appear in llms notes');
+  const tagsHtml = readFileSync(join(out, 'tags', 'index.html'), 'utf8');
+  assert.match(tagsHtml, /<title>Tags · vault<\/title>/, 'tags page missing the title');
+  assert.match(
+    tagsHtml,
+    /name="description" content="1 tag, one quiz deck\."/,
+    'tags page description must mention the tag count',
+  );
+  assert.match(
+    tagsHtml,
+    /rel="canonical" href="http:\/\/localhost\/sub\/tags"/,
+    'tags page missing the canonical',
+  );
+  // pill + count badge, linking to the generated quiz with the base path baked
+  // in (a root-absolute href would bypass <base href> and 404 on subpaths)
+  assert.match(tagsHtml, /tag-pill-name">#quiz</, 'tags page missing the tag pill');
+  assert.match(tagsHtml, /tag-pill-count">3</, 'tags page missing the count badge');
+  assert.match(
+    tagsHtml,
+    /href="\/sub\/tags\/quiz"/,
+    'tags page pill missing the base-path link to the quiz',
+  );
+  assert.doesNotMatch(
+    tagsHtml,
+    /href="\/tags\/quiz"/,
+    'tags page pill link must carry the base path',
+  );
+
   rmSync(out, { recursive: true, force: true });
 }, { timeout: 180000 });

@@ -6,6 +6,7 @@ import type {
   Note,
   Quiz,
   SearchIndex,
+  TagIndex,
 } from '@shared/content-model';
 
 /**
@@ -19,6 +20,7 @@ export class ContentService {
   private manifest?: Manifest;
   private graph?: GraphData;
   private searchIndex?: SearchIndex;
+  private tagIndex?: TagIndex;
 
   async loadManifest(): Promise<Manifest> {
     if (!this.manifest) {
@@ -51,6 +53,15 @@ export class ContentService {
       this.searchIndex = await this.read<SearchIndex>('search-index.json');
     }
     return this.searchIndex;
+  }
+
+  /** Tag index for the /tags view: parser-sorted (count desc, name asc). The
+   *  server variant inherits this read — both paths hit the same bundle file. */
+  async loadTagIndex(): Promise<TagIndex> {
+    if (!this.tagIndex) {
+      this.tagIndex = await this.read<TagIndex>('tags.json');
+    }
+    return this.tagIndex;
   }
 
   protected async read<T>(relative: string): Promise<T> {

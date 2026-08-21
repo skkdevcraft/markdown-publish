@@ -40,7 +40,10 @@ const titleBySlug = new Map(
   (manifest.routes ?? []).map((r) => [`/${r.slug}`, r.title]),
 );
 const noteLines = routePaths
-  .filter((p) => p !== '/' && p !== '/graph')
+  // Non-note chrome pages stay out of the "## Notes" list (graph, and the
+  // /tags index — which has no manifest title to fall back on, so it would
+  // otherwise leak a bare `/tags` path line).
+  .filter((p) => p !== '/' && p !== '/graph' && p !== '/tags')
   .map((p) => `- [${titleBySlug.get(p) ?? p}](${siteUrl}${encodeURI(p)})`);
 const llms =
   `# ${manifest.site.title}\n\n` +

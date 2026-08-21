@@ -35,7 +35,8 @@
   color: var(--text-accent);
 }
 
-.site-graph-link {
+.site-graph-link,
+.site-tags-link {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -46,7 +47,8 @@
   text-decoration: none;
 }
 
-.site-graph-link:hover {
+.site-graph-link:hover,
+.site-tags-link:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
