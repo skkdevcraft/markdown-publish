@@ -1,4 +1,5 @@
-import { DOCUMENT, inject, Injectable, PendingTasks } from '@angular/core';
+import { DOCUMENT, inject, Injectable, PendingTasks, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
 import { ContentService } from '../content/content.service';
 
@@ -29,6 +30,7 @@ export class SeoService {
   private readonly doc = inject(DOCUMENT);
   private readonly content = inject(ContentService);
   private readonly pending = inject(PendingTasks);
+  private readonly platformId = inject(PLATFORM_ID);
 
   private site?: { name: string; url: string; description: string; lang: string };
 
@@ -74,26 +76,36 @@ export class SeoService {
 
     // og.png is generated at build time with the site name. Crawlers don't run
     // JS, so an absolute URL (configured or provider-detected) is what makes
-    // link previews work everywhere; the baseURI fallback survives subpaths.
+    // link previews work everywhere. No origin is ever fabricated: during
+    // static prerender the DOM is Domino, whose Node#baseURI is not
+    // implemented (throws NotYetImplemented) and whose location is an
+    // ephemeral worker URL — so the og:image / twitter:image tags are only
+    // written when an origin genuinely exists.
     const ogImage = site.url
       ? `${site.url}/og.png`
-      : new URL('og.png', this.doc.baseURI).href;
+      : isPlatformBrowser(this.platformId)
+        ? new URL('og.png', this.doc.baseURI).href
+        : '';
     const og: Record<string, string> = {
       'og:title': ogTitle,
       'og:description': desc,
       'og:type': input.type ?? 'website',
       'og:site_name': site.name,
-      'og:image': ogImage,
     };
     if (abs) og['og:url'] = abs;
+    if (ogImage) og['og:image'] = ogImage;
     for (const [property, content] of Object.entries(og)) {
       this.meta.updateTag({ property, content });
     }
 
-    this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
+    if (ogImage) {
+      this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
+    }
     this.meta.updateTag({ name: 'twitter:title', content: ogTitle });
     this.meta.updateTag({ name: 'twitter:description', content: desc });
-    this.meta.updateTag({ name: 'twitter:image', content: ogImage });
+    if (ogImage) {
+      this.meta.updateTag({ name: 'twitter:image', content: ogImage });
+    }
 
     this.setJsonLd(input, abs, desc, site);
   }
@@ -103,9 +115,15 @@ export class SeoService {
     if (siteUrl) {
       return siteUrl + encodeURI(p);
     }
-    // No configured origin: only resolvable in the browser.
-    const origin = this.doc.defaultView?.location.origin;
-    return origin ? origin + encodeURI(p) : '';
+    // No configured origin: only resolvable where a real document origin
+    // exists, i.e. in the browser. Domino's location is an ephemeral
+    // prerender worker URL, so emitting it would bake localhost into the
+    // static HTML — better to emit nothing.
+    if (isPlatformBrowser(this.platformId)) {
+      const origin = this.doc.defaultView?.location.origin;
+      return origin ? origin + encodeURI(p) : '';
+    }
+    return '';
   }
 
   private setRobots(noindex: boolean): void {
