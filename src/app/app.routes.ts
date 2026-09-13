@@ -4,6 +4,7 @@ import { ContentService } from './content/content.service';
 import { RouteDispatch } from './views/route-dispatch';
 import { GraphView } from './graph/graph-view';
 import { TagsView } from './views/tags-view';
+import { SearchView } from './views/search-view';
 
 const redirectToHome: CanActivateFn = async () => {
   const content = inject(ContentService);
@@ -31,6 +32,13 @@ export const routes: Routes = [
     path: 'tags',
     pathMatch: 'full',
     component: TagsView,
+  },
+  {
+    // Dedicated search page. Exact match (like `tags`) so a note slug that
+    // merely starts with `search` still falls through to the catch-all.
+    path: 'search',
+    pathMatch: 'full',
+    component: SearchView,
   },
   {
     path: '**',

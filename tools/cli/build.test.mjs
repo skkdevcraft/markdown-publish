@@ -224,5 +224,29 @@ test('builds the fixtures vault into a complete static site under a base href', 
     'tags page pill link must carry the base path',
   );
 
+  // --- dedicated search page (/search) ---
+  // A chrome page like /graph and /tags: prerendered (so its <title> and shell
+  // reach crawlers and the sitemap) but kept out of llms.txt's "## Notes"
+  // list. The search itself is client-side Pagefind, so the prerendered HTML
+  // only needs to prove the page and its input made it in.
+  assert.ok(
+    existsSync(join(out, 'search', 'index.html')),
+    'search page not prerendered',
+  );
+  assert.match(
+    sitemap,
+    /http:\/\/localhost\/sub\/search<\/loc>/,
+    'sitemap missing the search URL',
+  );
+  const searchHtml = readFileSync(join(out, 'search', 'index.html'), 'utf8');
+  assert.match(searchHtml, /<title>Search · vault<\/title>/, 'search page missing the title');
+  assert.match(searchHtml, /id="search-input"/, 'search page missing the search input');
+  assert.match(
+    searchHtml,
+    /class="site-search-launcher" href="\/sub\/search"/,
+    'sidebar search launcher must link to the search page with the base path',
+  );
+  assert.doesNotMatch(llms, /\[\/search\]/, 'search page must not appear in llms notes');
+
   rmSync(out, { recursive: true, force: true });
 }, { timeout: 180000 });

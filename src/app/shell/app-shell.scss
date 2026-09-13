@@ -35,6 +35,43 @@
   color: var(--text-accent);
 }
 
+/* Looks like the search box it replaced, but is a plain link: clicking (or
+   focusing and pressing Enter) navigates to the dedicated /search page — no
+   dropdown, no per-keystroke work in the shell. */
+.site-search-launcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 5px;
+  background: var(--background-primary);
+  color: var(--text-faint);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.site-search-launcher:hover,
+.site-search-launcher:focus-visible {
+  border-color: var(--text-accent);
+  color: var(--text-muted);
+}
+
+.search-launcher-icon {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.search-launcher-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .site-graph-link,
 .site-tags-link {
   display: flex;

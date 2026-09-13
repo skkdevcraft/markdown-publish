@@ -47,7 +47,7 @@ One click clones the [starter template](https://github.com/abstractwebunit/markd
 |---|---|---|
 | ![Graph](.github/media/graph.png) | ![Canvas](.github/media/canvas.png) | ![Search](.github/media/search.png) |
 
-- **Search in the browser** ([Pagefind](https://pagefind.app)) — no server, `Ctrl+K`, works offline.
+- **Search in the browser** ([Pagefind](https://pagefind.app)) — dedicated `/search` page, `Ctrl+K`, no server, works offline.
 - **Link graph** (WebGL) — global view + a local graph beside every note; smooth at 1,500+ notes.
 - **Canvas boards** — `.canvas` files ([JSON Canvas](https://jsoncanvas.org)) render as interactive boards: drag, resize, follow links.
 - **Quiz decks** — `.quiz.json` files turn tag-matched notes into self-graded Anki-style review sessions, stats kept in your browser.

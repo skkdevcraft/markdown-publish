@@ -23,7 +23,16 @@
     <a class="site-name" routerLink="/">{{ manifest.value()?.site?.title ?? 'Notes' }}</a>
 
     <app-theme-toggle />
-    <app-search-overlay />
+    <a class="site-search-launcher" routerLink="/search" aria-label="Search notes">
+      <span class="search-launcher-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+      </span>
+      <span class="search-launcher-text">Search notes…</span>
+    </a>
 
     <a class="site-graph-link" routerLink="/graph">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"

@@ -15,7 +15,9 @@ export interface SearchHit {
  * frequency) with a windowed snippet. The semantic layer (R8.2) augments this
  * via {@link semanticHits}; results are merged in {@link search}.
  *
- * Shared by the human search-overlay and the WebMCP `search_notes` agent tool.
+ * Backs the WebMCP `search_notes` agent tool. The human-facing /search page is
+ * backed by Pagefind instead; this keyword index needs no built site (it reads
+ * the content bundle), which is why agents use it.
  */
 @Injectable({ providedIn: 'root' })
 export class SearchService {
