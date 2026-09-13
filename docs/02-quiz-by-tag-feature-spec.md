@@ -207,7 +207,7 @@ render.
 **Seams (two existing, one new — all at the highest practical levels):**
 
 1. **Full-pipeline E2E test** (extends the existing build test, which runs
-   parse → Angular SSG → pagefind → SEO/OG against the fixture vault):
+   parse → Angular SSG → SEO/OG against the fixture vault):
    - `tags.json` exists with the exact expected entry for the fixture.
    - manifest routes contain `tags/quiz` (`kind: 'quiz'`, title `#quiz`);
      nav contains no `tags/quiz` leaf.
@@ -266,8 +266,8 @@ tag-index test is the same pattern pointed at a temp vault.
   history (accepted — same policy as renaming a deck file). Stale stat
   entries for notes that left a tag after a rebuild are kept (existing
   policy).
-- **Pagefind:** tag quiz pages and the index page are prerendered HTML and
-  get indexed automatically — intended, consistent with hand-written quiz
+- **Search:** tag quiz pages and the index page are not in the search index
+  (`search-index.json` covers notes only), consistent with hand-written quiz
   pages.
 - **Docs:** README feature bullet ("Quiz by tag — every frontmatter tag is
   automatically a quiz deck, browsable from the Tags view") and AGENTS.md

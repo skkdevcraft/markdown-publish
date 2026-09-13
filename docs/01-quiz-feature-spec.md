@@ -121,9 +121,9 @@ export interface Quiz {
   and 404s only.)
 - **Prerender:** quiz routes land in `manifest.routes`, so the `**` catch-all
   in `app.routes.server.ts` (`getPrerenderParams`) prerenders them — no change.
-- **Pagefind:** quiz pages are indexed automatically (they're prerendered
-  HTML). Intended — a searchable quiz is a feature. In-session note bodies are
-  client-side only and never enter the index.
+- **Search:** search indexes notes only (`content/search-index.json`), so quiz
+  pages are *not* searchable. In-session note bodies are client-side only and
+  never enter the index either.
 
 **Out of scope (agreed):** no link-graph nodes, no WebMCP tools, no
 search-index schema changes.

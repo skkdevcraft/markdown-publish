@@ -23,9 +23,12 @@ test('builds the fixtures vault into a complete static site under a base href', 
   });
   runBuild(cfg, { cwd: PKG_ROOT });
   for (const f of ['index.html', 'sitemap.xml', 'robots.txt', 'llms.txt', '404.html',
-                   'content/manifest.json', 'pagefind/pagefind.js', 'og.png']) {
+                   'content/manifest.json', 'content/search-index.json', 'og.png']) {
     assert.ok(existsSync(join(out, f)), `missing ${f}`);
   }
+  // search is entirely client-side now: the index ships in the content bundle
+  // and Pagefind must no longer be emitted at all.
+  assert.ok(!existsSync(join(out, 'pagefind')), 'pagefind output should no longer be emitted');
   // the generated og card must be a real 1200x630 PNG (not the html fallback)
   const png = readFileSync(join(out, 'og.png'));
   assert.equal(png.readUInt32BE(16), 1200, 'og.png width');
@@ -227,8 +230,8 @@ test('builds the fixtures vault into a complete static site under a base href', 
   // --- dedicated search page (/search) ---
   // A chrome page like /graph and /tags: prerendered (so its <title> and shell
   // reach crawlers and the sitemap) but kept out of llms.txt's "## Notes"
-  // list. The search itself is client-side Pagefind, so the prerendered HTML
-  // only needs to prove the page and its input made it in.
+  // list. Search runs client-side over content/search-index.json, so the
+  // prerendered HTML only needs to prove the page and its input made it in.
   assert.ok(
     existsSync(join(out, 'search', 'index.html')),
     'search page not prerendered',

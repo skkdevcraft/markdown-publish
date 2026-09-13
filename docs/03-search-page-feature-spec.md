@@ -38,12 +38,13 @@ From the visitor's perspective:
   toggle owns that corner).
 - The states are honest: a hint before searching, "Searching…" while in
   flight, `No results for "…"` for a genuine empty result, and "Search is
-  unavailable right now" when the Pagefind index cannot be loaded — an empty
+  unavailable right now" when the search index cannot be loaded — an empty
   list is never used to mean "broken".
 - `Ctrl/Cmd+K` navigates to `/search` and focuses the input from anywhere.
 
 From the author's perspective: nothing changes — the page is static, backed
-by the same Pagefind index, and works offline and under a subpath deployment.
+by the content bundle's search index, and works offline and under a subpath
+deployment.
 
 ## User Stories
 
@@ -63,19 +64,27 @@ by the same Pagefind index, and works offline and under a subpath deployment.
 14. As a mobile visitor, I want the search bar to not collide with the menu button, so that the page is usable on a phone.
 15. As a site visitor on a subpath deployment, I want the search page and its results to be base-relative, so that search works under a GitHub Pages project site.
 16. As a site visitor, I want the search page to have a proper title and canonical, so that it is shareable.
-17. As a vault author, I want the dedicated page to reuse the existing Pagefind index, so that I do not maintain a second search system.
+17. As a vault author, I want the dedicated page to reuse the existing client-side search index, so that I do not maintain a second search system.
 18. As a deployer, I want `/search` prerendered and in the sitemap but out of `llms.txt`, so that it matches the other chrome pages (`/graph`, `/tags`).
 
 ## Implementation Decisions
 
-### 1. Pagefind stays the engine; the page is the new shell
+### 1. One client-side engine, shared with WebMCP
 
-The removed popup used Pagefind (client-side, no server). The page reuses it
-via the same dynamic `import()` of `pagefind/pagefind.js` resolved against
-`<base href>`, so highlighted `<mark>` excerpts and offline search keep
-working. The keyword engine in `SearchService` is **not** used by the page: it
-backed (and still backs) the WebMCP `search_notes` agent tool, which must work
-without a built site.
+The page is backed by `SearchService` over `content/search-index.json` — the
+same keyword index (and the same scoring) that backs the WebMCP `search_notes`
+agent tool. Because the index already ships with the content bundle, there is
+no separate index to build or load, search works in `ng serve` and offline,
+and base-relative behavior comes from the normal `<base href>` handling.
+
+An earlier revision used Pagefind (client-side import of `pagefind/pagefind.js`).
+It was removed as a dependency: the 582 KB keyword index was already shipped
+for WebMCP, and maintaining two search systems (Pagefind's index plus the
+keyword one) bought language-aware stemming at the cost of an extra ~2.5 MB of
+build output and a second engine to keep in sync. The accepted regression is no
+stemming/typo tolerance (searching `correr` no longer matches `corriendo`;
+searching `corr` still does). Search covers notes only — the same scope as
+before, since `NoteView` was the only page marked for Pagefind indexing.
 
 ### 2. Search on submit only
 
@@ -87,7 +96,7 @@ button is disabled and a repeat submit is ignored.
 
 Rows are buttons (title + excerpt) rendered in the page, not positioned. At
 most 50 rows are shown; there is no pagination and no "N results" total
-(Pagefind's count is not a meaningful total and could be misleading). The page
+(the index has no cheap total, and a count is not needed for navigation). The page
 scrolls in `.site-main`, the app's single existing scroll container, so no
 nested scroll region is introduced.
 
@@ -100,9 +109,9 @@ top of the bar.
 
 ### 5. Explicit unavailable state
 
-A failed Pagefind load sets `status = 'unavailable'` and shows a distinct
-message. It never falls through to "no results". A rejected import is not
-cached, so a later search can retry.
+A failed `search-index.json` load sets `status = 'error'` and shows a distinct
+message. It never falls through to "no results". The failed load is not cached,
+so a later search can retry.
 
 ### 6. Chrome-page route + SEO
 
@@ -127,10 +136,14 @@ real link — middle-click, Cmd+click, and screen-reader semantics work, and
 `tools/cli/build.test.mjs` (full end-to-end build under `--base-href /sub/`)
 asserts the new page is prerendered (`search/index.html`), carries
 `<title>Search · vault</title>` and the search input, appears in
-`sitemap.xml`, does **not** appear in `llms.txt`, and that the sidebar
-launcher link carries the base path (`/sub/search`). No component unit test is
-added: Pagefind does not exist in the Vitest environment, so a spec would only
-assert against a mock.
+`sitemap.xml`, does **not** appear in `llms.txt`, that the sidebar launcher
+link carries the base path (`/sub/search`), that `content/search-index.json`
+is emitted, and that no `pagefind/` output is produced. Unit coverage lives in
+`src/app/search/search.service.spec.ts` (scoring, substring matching, accent
+folding, snippet segments, limit, preload/retry) and
+`src/app/views/search-view.spec.ts` (marked excerpts, empty and error states,
+SEO) — the browser-side engine is testable in Vitest, unlike the old dynamic
+Pagefind import.
 
 ## Out of Scope
 
@@ -139,4 +152,5 @@ assert against a mock.
 - Per-section (`sub_results`) results or deep links to headings.
 - Reflecting the query in the URL (`/search?q=…`); the query is component
   state only.
-- Changes to the WebMCP search tools or the `SearchService` keyword index.
+- Changes to the WebMCP tool schemas (the `search_notes` payload stays identical).
+- Stemming, typo tolerance, and language-aware tokenization.

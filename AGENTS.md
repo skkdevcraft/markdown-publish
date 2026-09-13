@@ -9,7 +9,7 @@ Build guide for coding agents working in this repo. Everything below was verifie
 The build pipeline has two stages:
 
 1. **Build-time vault parser** (Node, `tools/vault-parser/`) — walks the vault, renders Markdown (wikilinks, embeds, callouts, tags, footnotes) to HTML, and emits a JSON "content bundle" into `src/content/` (notes, canvas models, quiz decks, tag index, link graph, search index, manifest, hashed assets). Every frontmatter tag that survives the tag index's collision filtering also gets a generated quiz deck under the quiz output (`quiz/tags/<slug>.json`).
-2. **Angular SSG prerender** — an Angular 22 app (`src/`) consumes that bundle at build time, prerenders every route to static HTML (`outputMode: static`), then Pagefind + small Node scripts add search, SEO files, and a social card.
+2. **Angular SSG prerender** — an Angular 22 app (`src/`) consumes that bundle at build time, prerenders every route to static HTML (`outputMode: static`), then small Node scripts add SEO files and a social card. Search is client-side over the content bundle — there is no separate index step.
 
 The repo **dogfoods the product**: the docs site (abstractwebunit.github.io/markdown-publish-docs) is built by this tool, and `tools/fixtures/vault/` is the test vault used to exercise the pipeline.
 
@@ -24,7 +24,7 @@ The repo **dogfoods the product**: the docs site (abstractwebunit.github.io/mark
 | Markdown rendering | `markdown-it` + plugins (anchor, footnote, task-lists), `highlight.js` | Custom wikilink/tag/callout rules in `tools/vault-parser/markdown.ts` |
 | Runtime | Node `>=20` (repo tested on Node 24.18.0) | `packageManager: npm@11.13.0` |
 | Package manager | npm | `npm install`, lockfile `package-lock.json` |
-| Search | `pagefind` (client-side, no server) | Also a custom keyword index for WebMCP + search service |
+| Search | `content/search-index.json` (client-side keyword index) | Ships in the content bundle; backs `/search` and WebMCP — no build step |
 | Sanitization | `dompurify` (runtime), MarkdownIt `html: false` (build) | |
 | OG image | `@resvg/resvg-js` | Fallback copies `public/og-default.png` |
 | Dev container | `.devcontainer/devcontainer.json` | Node 24 image (trixie) |
@@ -74,10 +74,9 @@ action.yml            Composite GitHub Action definition for consumers
 **Build pipeline** (`runBuild` in `tools/cli/run-build.mjs`) — orchestrated by spawning Node on the package's own bins (no shell):
 1. `tsx tools/vault-parser/run.ts` — vault → `src/content/` (env contract: `VAULT`, `BASE_HREF`, `CONTENT_OUT`, `BUILD_MODE`, `SITE_NAME`, `SITE_URL`, `SITE_LANG`, `SITE_DESCRIPTION`, `SITE_FOOTER`, `HOME_NOTE`). It deletes `src/content` and `dist` first.
 2. `ng build --base-href <href>` — Angular SSG prerenders all routes (reads `src/content` from disk via `ServerContentService`) → `dist/markdown-publish/browser` + `prerendered-routes.json`.
-3. `pagefind --site dist/markdown-publish/browser` — search index.
-4. `tools/gen-seo.mjs` — robots.txt, sitemap.xml, llms.txt, 404.html (reads `prerendered-routes.json` + `SITE_URL`).
-5. `tools/gen-og.mjs` — og.png from `SITE_NAME`/`SITE_DESCRIPTION`.
-6. Copies browser output to `--out` dir.
+3. `tools/gen-seo.mjs` — robots.txt, sitemap.xml, llms.txt, 404.html (reads `prerendered-routes.json` + `SITE_URL`).
+4. `tools/gen-og.mjs` — og.png from `SITE_NAME`/`SITE_DESCRIPTION`.
+5. Copies browser output to `--out` dir.
 
 **Angular app** (runtime data flow):
 - `src/main.ts` bootstraps `App` → `AppShell` (sidebar nav, theme toggle, search overlay) + router outlet.
@@ -99,7 +98,7 @@ npm install            # install deps (node_modules already present in this work
 
 npm run parse          # parse tools/fixtures/vault → src/content  (also: npm run build:content)
 npm run build          # ng build (production SSG; full typecheck included)
-npm run build:site     # full pipeline: content → app → pagefind → seo → og (fixtures vault)
+npm run build:site     # full pipeline: content → app → seo → og (fixtures vault)
 npm run serve:static   # serve dist/markdown-publish/browser on :4301 (SPA fallback)
 npm start              # ng serve dev server (default :4200, HMR); needs src/content present first
 npm run watch          # ng build --watch --configuration development
@@ -124,7 +123,7 @@ Two separate test suites, **two different runners**:
 | CLI / build pipeline | Node built-in `node:test` | `npm run test:cli` | `tools/cli/*.test.mjs` |  |
 | Angular app | Vitest via `@angular/build:unit-test` builder | `npm test` | `src/**/*.spec.ts` |  |
 
-- `npm run test:cli` — runs `node --test "tools/cli/**/*.test.mjs"`. Includes `build.test.mjs`, a full end-to-end build of `tools/fixtures/vault` into a temp dir (asserts sitemap, robots, llms, pagefind, og.png dimensions, base-href behavior, wikilink hrefs, generated tag-deck + `/tags` prerender behavior), plus the fast parser-level suites that spawn only `tsx run.ts` (no `ng build`): `quiz-public-mode.test.mjs` (private notes never reach quiz decks in `public` builds), `tag-index.test.mjs` (tag index invariants, incl. count-equals-deck-size), and `tag-inline.test.mjs` (inline-tag link rendering).
+- `npm run test:cli` — runs `node --test "tools/cli/**/*.test.mjs"`. Includes `build.test.mjs`, a full end-to-end build of `tools/fixtures/vault` into a temp dir (asserts sitemap, robots, llms, og.png dimensions, base-href behavior, wikilink hrefs, generated tag-deck + `/tags` prerender behavior), plus the fast parser-level suites that spawn only `tsx run.ts` (no `ng build`): `quiz-public-mode.test.mjs` (private notes never reach quiz decks in `public` builds), `tag-index.test.mjs` (tag index invariants, incl. count-equals-deck-size), and `tag-inline.test.mjs` (inline-tag link rendering).
 - `npm test` — Vitest, config from the Angular builder (no `vitest.config.*` file exists; `tsconfig.spec.json` adds `vitest/globals` types). Single file: `ng test --include src/app/app.spec.ts` (or pass the file path to `--include`).
 
 ## 7. Code quality
@@ -155,7 +154,7 @@ Two separate test suites, **two different runners**:
 - **`serve:ssr:markdown-publish` is broken** (`node dist/markdown-publish/server/server.mjs`): with `outputMode: "static"` no server bundle is emitted — `dist/markdown-publish/server/` does not exist after a build. Leftover from the Angular template. Use `npm run serve:static` (or `ng serve`) instead.
 - **`src/content` is disposable.** `run-build.mjs` (the CLI path) wipes it before parsing; the npm-script path (`build:content`) only overwrites file-by-file, so deleted notes can leave stale JSON behind. Never hand-edit it; add a content-bundle change to the parser, not to `src/content`.
 - **Build budget warning is expected:** `initial` bundle ~576 kB exceeds the 500 kB warning budget — a warning, not an error; `npm run build` still exits 0. Don't treat it as a failure.
-- **Commands must run from the repo root** — `run-build.mjs` computes `PKG_ROOT` from its own path, but `gen-seo.mjs`/`gen-og.mjs` resolve `dist/...` relative to `process.cwd()`, and `pagefind`/`ng` are spawned with `cwd: PKG_ROOT`. Running npm scripts elsewhere breaks paths.
+- **Commands must run from the repo root** — `run-build.mjs` computes `PKG_ROOT` from its own path, but `gen-seo.mjs`/`gen-og.mjs` resolve `dist/...` relative to `process.cwd()`, and `ng` is spawned with `cwd: PKG_ROOT`. Running npm scripts elsewhere breaks paths.
 - **Base-href is load-bearing.** `/repo/` subpath deployments fail (404s, broken sitemap doubling) if URLs regain leading slashes. `build.test.mjs` asserts this — keep those assertions.
 - **Env var footguns:** bare `SITE_NAME`/`SITE_URL` are deliberately ignored (Netlify stomps them) — only `MP_*` vars configure the site; provider detection uses provider-scoped vars. Don't "simplify" this.
 - **npm publish surface:** `files` whitelist ships `tools`, `src` (minus `src/content`), `shared`, `public`, `angular.json`, `tsconfig*.json`, `action.yml`, `templates` — and excludes `tools/fixtures`. New tool files must land in `tools/` to be published; fixture changes won't ship (fine — tests run pre-publish).

@@ -26,8 +26,8 @@ import { SeoService, excerptFromMarkdown } from '../seo/seo.service';
   template: `
     @if (note.value(); as data) {
       <div class="reading">
-        <article class="note" data-pagefind-body>
-          <h1 class="note-title" data-pagefind-meta="title">{{ data.title }}</h1>
+        <article class="note">
+          <h1 class="note-title">{{ data.title }}</h1>
           <div
             class="note-body"
             [innerHTML]="safeHtml()"

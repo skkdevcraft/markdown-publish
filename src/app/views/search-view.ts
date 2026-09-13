@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DOCUMENT,
   ElementRef,
   afterNextRender,
   inject,
@@ -10,33 +9,19 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { SearchService, type SnippetSegment } from '../search/search.service';
 import { SeoService } from '../seo/seo.service';
-
-interface PagefindResult {
-  data(): Promise<PagefindData>;
-}
-
-interface PagefindData {
-  url: string;
-  excerpt: string;
-  meta?: { title?: string };
-}
-
-interface PagefindModule {
-  search(term: string): Promise<{ results: PagefindResult[] }>;
-}
 
 interface SearchResult {
   url: string;
   title: string;
-  excerpt: string;
+  segments: SnippetSegment[];
 }
 
 /** idle → nothing searched yet; searching → request in flight; results/empty →
- * a completed search (never confuse the two); unavailable → Pagefind could not
- * be loaded (dev server, missing index), which must not masquerade as "no
- * results". */
-type SearchStatus = 'idle' | 'searching' | 'results' | 'empty' | 'unavailable';
+ * a completed search (never confuse the two); error → the search index could
+ * not be loaded, which must not masquerade as "no results". */
+type SearchStatus = 'idle' | 'searching' | 'results' | 'empty' | 'error';
 
 /** A scrollable page can afford more than the old popup's top-10. Fixed cap,
  * no pagination (see docs/03-search-page-feature-spec.md). */
@@ -53,9 +38,10 @@ const MAX_RESULTS = 50;
  *   container) on desktop so you can refine a query while deep in the list.
  *   Not sticky on mobile, where the fixed nav-toggle would sit on top of it.
  *
- * Backed by Pagefind, like the popup it replaces: results carry `<mark>`ed
- * excerpts and the index lives only in a built site — hence the explicit
- * `unavailable` state instead of a fake empty result set.
+ * Backed by the shared client-side keyword index (`SearchService`): the content
+ * bundle (including `search-index.json`) already ships with the site, so there
+ * is no separate index to load and search works in `ng serve` too. Result
+ * excerpts render `<mark>`ed match segments — never `innerHTML`.
  */
 @Component({
   selector: 'app-search-view',
@@ -126,9 +112,9 @@ const MAX_RESULTS = 50;
           @case ('searching') {
             <p class="search-hint">Searching…</p>
           }
-          @case ('unavailable') {
+          @case ('error') {
             <p class="search-unavailable">
-              Search is unavailable right now. (The Pagefind index only exists in a built site.)
+              Search is unavailable right now. (Couldn't load the search index.)
             </p>
           }
           @case ('empty') {
@@ -140,7 +126,15 @@ const MAX_RESULTS = 50;
                 <li>
                   <button type="button" class="result" (click)="go(r.url)">
                     <span class="result-title">{{ r.title }}</span>
-                    <span class="result-excerpt" [innerHTML]="r.excerpt"></span>
+                    <span class="result-excerpt">
+                      @for (seg of r.segments; track $index) {
+                        @if (seg.match) {
+                          <mark>{{ seg.text }}</mark>
+                        } @else {
+                          <span class="excerpt-plain">{{ seg.text }}</span>
+                        }
+                      }
+                    </span>
                   </button>
                 </li>
               }
@@ -343,7 +337,7 @@ const MAX_RESULTS = 50;
         color: var(--text-muted);
       }
 
-      .result-excerpt ::ng-deep mark {
+      .result-excerpt mark {
         background: rgba(250, 204, 21, 0.4);
         color: inherit;
         border-radius: 2px;
@@ -376,8 +370,7 @@ export class SearchView {
 
   private readonly inputEl = viewChild<ElementRef<HTMLInputElement>>('searchInput');
   private readonly router = inject(Router);
-  private readonly doc = inject(DOCUMENT);
-  private pagefind: Promise<PagefindModule> | null = null;
+  private readonly search = inject(SearchService);
 
   constructor() {
     // Chrome page: title/description/canonical only, no note body to excerpt.
@@ -387,6 +380,10 @@ export class SearchView {
       path: '/search',
       type: 'website',
     });
+
+    // Warm the index while the user types, so the first submit rarely waits on
+    // the fetch. Swallow failures here — the submit path owns the error state.
+    void this.search.preload().catch(() => {});
 
     // Focus on arrival (sidebar launcher / Ctrl+K / direct URL). `autofocus`
     // alone doesn't fire on client-side route changes, so do it explicitly.
@@ -422,44 +419,13 @@ export class SearchView {
     this.results.set([]);
     this.submitted.set(term);
     try {
-      const pf = await this.loadPagefind();
-      const search = await pf.search(term);
-      const data = await Promise.all(search.results.slice(0, MAX_RESULTS).map((r) => r.data()));
-      this.results.set(
-        data.map((d) => ({
-          url: this.normalize(d.url),
-          title: d.meta?.title ?? d.url,
-          excerpt: d.excerpt,
-        })),
-      );
-      this.status.set(data.length ? 'results' : 'empty');
+      const hits = await this.search.search(term, MAX_RESULTS);
+      this.results.set(hits.map((h) => ({ url: h.url, title: h.title, segments: h.segments })));
+      this.status.set(hits.length ? 'results' : 'empty');
     } catch {
       this.results.set([]);
-      this.status.set('unavailable');
+      this.status.set('error');
     }
-  }
-
-  private loadPagefind(): Promise<PagefindModule> {
-    if (!this.pagefind) {
-      // Resolve against <base href> so search works under a Pages subpath too.
-      const url = new URL('pagefind/pagefind.js', this.doc.baseURI).href;
-      // Dynamic import via Function: the bundler must not try to resolve
-      // Pagefind at build time (it only exists in the built site).
-      const loading = new Function('u', 'return import(u)')(url) as Promise<PagefindModule>;
-      // Don't cache a rejection, or every later search fails without retrying.
-      loading.catch(() => {
-        if (this.pagefind === loading) {
-          this.pagefind = null;
-        }
-      });
-      this.pagefind = loading;
-    }
-    return this.pagefind;
-  }
-
-  /** Pagefind emits `/note/index.html`; the router wants a base-relative path. */
-  private normalize(url: string): string {
-    return url.replace(/index\.html$/, '').replace(/\/$/, '') || '/';
   }
 
   protected go(url: string): void {

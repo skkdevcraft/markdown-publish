@@ -15,8 +15,8 @@ const requireFromPkg = createRequire(join(PKG_ROOT, 'package.json'));
  * Locate a package's install directory by scanning the resolver's candidate
  * node_modules paths for `<dir>/<pkg>/package.json` on disk. Unlike
  * `require.resolve(pkg)`, this does not go through the package's `exports`
- * map, so it works even for packages (e.g. pagefind) that export no `.` or
- * `./package.json` subpath.
+ * map, so it works even for packages that export no `.` or `./package.json`
+ * subpath.
  */
 function packageDir(pkg) {
   for (const base of requireFromPkg.resolve.paths(pkg) ?? []) {
@@ -47,7 +47,6 @@ export { resolveBinJs };
 const BIN = {
   tsx: resolveBinJs('tsx'),
   ng: resolveBinJs('@angular/cli', 'ng'),
-  pagefind: resolveBinJs('pagefind'),
 };
 
 /** Spawn `node <binJs> <args...>` with no shell on every platform. */
@@ -100,7 +99,6 @@ export function runBuild(cfg, { cwd = process.cwd() } = {}) {
 
   runNode(BIN.tsx, ['tools/vault-parser/run.ts'], env); // → src/content
   runNode(BIN.ng, ['build', '--base-href', baseHref], env); // → dist/markdown-publish/browser
-  runNode(BIN.pagefind, ['--site', DIST_BROWSER], env); // search index
   runNode(join(PKG_ROOT, 'tools', 'gen-seo.mjs'), [], env); // robots/sitemap/llms/404
   runNode(join(PKG_ROOT, 'tools', 'gen-og.mjs'), [], env); // og.png with the site name
 
