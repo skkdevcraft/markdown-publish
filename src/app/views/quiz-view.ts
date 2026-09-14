@@ -14,6 +14,7 @@ import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import DOMPurify from 'dompurify';
 import type { Quiz } from '@shared/content-model';
+import { CopyCode } from '../code/copy-code';
 import { ContentService } from '../content/content.service';
 import { SeoService } from '../seo/seo.service';
 
@@ -76,7 +77,7 @@ function writeStats(slug: string, cards: Record<string, CardStats>): void {
 @Component({
   selector: 'app-quiz-view',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink],
+  imports: [RouterLink, CopyCode],
   template: `
     @if (quiz.value(); as quiz) {
       @switch (screen()) {
@@ -98,7 +99,7 @@ function writeStats(slug: string, cards: Record<string, CardStats>): void {
                   <div class="quiz-reveal">
                     <!-- note.html is parser-sanitized; this browser-path pass
                          mirrors NoteView (DOMPurify handles runtime DOM) -->
-                    <div class="note-body" [innerHTML]="revealedHtml()"></div>
+                    <div class="note-body" appCopyCode [innerHTML]="revealedHtml()"></div>
                     <a class="quiz-open-note" [routerLink]="['/' + card.slug]">Open note →</a>
                   </div>
                 }

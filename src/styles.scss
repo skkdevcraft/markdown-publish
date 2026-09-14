@@ -276,6 +276,79 @@ body {
   font-size: 0.85em;
 }
 
+/* Copy-to-clipboard chrome, injected at runtime by the `appCopyCode`
+   directive (src/app/code/copy-code.ts). Runtime-created DOM sits outside
+   Angular's view encapsulation, so these rules must stay global — same
+   reason `.note-body pre` above lives here. */
+.code-block {
+  position: relative;
+}
+
+.code-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  /* Opaque (not --code-background) so scrolled-under code can't bleed
+     through the glyph. */
+  background: var(--background-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  z-index: 1;
+}
+
+/* Expands the hit area to ~44px without widening the visible button — iOS
+   users have no hover to confirm they hit a 32px target. */
+.code-copy::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+.code-copy:hover {
+  color: var(--text-normal);
+}
+
+.code-copy:active {
+  background: var(--background-modifier-hover);
+}
+
+.code-copy:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 1px;
+}
+
+.code-copy.is-copied {
+  color: var(--code-string);
+  border-color: var(--code-string);
+}
+
+.code-copy.is-failed {
+  color: var(--code-tag);
+  border-color: var(--code-tag);
+}
+
+/* Visually hidden but still in the accessibility tree, so `role="status"`
+   announcements land (clipping, not display:none). */
+.code-copy-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* highlight.js tokens → default code palette (see theme blocks) */
 .hljs-comment,
 .hljs-quote {

@@ -14,6 +14,7 @@ import { Router } from '@angular/router';
 import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import DOMPurify from 'dompurify';
 import { ContentService } from '../content/content.service';
+import { CopyCode } from '../code/copy-code';
 import { Toc } from '../aside/toc';
 import { Backlinks } from '../aside/backlinks';
 import { LocalGraph } from '../graph/local-graph';
@@ -22,7 +23,7 @@ import { SeoService, excerptFromMarkdown } from '../seo/seo.service';
 @Component({
   selector: 'app-note-view',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Toc, Backlinks, LocalGraph],
+  imports: [Toc, Backlinks, LocalGraph, CopyCode],
   template: `
     @if (note.value(); as data) {
       <div class="reading">
@@ -30,6 +31,7 @@ import { SeoService, excerptFromMarkdown } from '../seo/seo.service';
           <h1 class="note-title">{{ data.title }}</h1>
           <div
             class="note-body"
+            appCopyCode
             [innerHTML]="safeHtml()"
             (click)="onClick($event)"
             (mouseover)="onLinkOver($event)"
